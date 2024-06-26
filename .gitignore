@@ -1,7 +1,17 @@
-venv/
-.env
+# Python
+*.py[cod]
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+*.so
+
+# Environment variables
+.env
+
+# Databases
+*.sqlite3
+*.db
+
+# Data
+data/
+
+# Virtual environments
+venv/
