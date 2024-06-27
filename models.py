@@ -1,5 +1,4 @@
 from database import db
-from bson import ObjectId
 
 class Question:
     collection = db.questions
@@ -41,3 +40,23 @@ class UserProgress:
     @staticmethod
     def update(query, update):
         return UserProgress.collection.update_one(query, update, upsert=True)
+
+class User:
+    collection = db.users
+
+    @staticmethod
+    def create(username, email, password, profile_picture):
+        return User.collection.insert_one({
+            "username": username,
+            "email": email,
+            "password": password,
+            "profile_picture": profile_picture
+        })
+
+    @staticmethod
+    def find_one(query):
+        return User.collection.find_one(query)
+
+    @staticmethod
+    def update_one(query, update):
+        return User.collection.update_one(query, update)
