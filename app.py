@@ -25,96 +25,96 @@ def send_email(to_email, subject, body):
     msg['Subject'] = subject
 
     html_body = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Your Password</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap');
-        body {{
-            font-family: 'Space Grotesk', sans-serif;
-            background: black;
-            color: black;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }}
-        .email-container {{
-            background: grey;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            max-width: 600px;
-            padding: 20px;
-            text-align: center;
-        }}
-        .logo-title {{
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            justify-content: center;
-            margin-bottom: 20px;
-        }}
-        .logo {{
-            width: 24px;
-            height: 24px;
-            color: black;
-        }}
-        h1 {{
-            font-size: 24px;
-            font-weight: bold;
-            margin: 0;
-            text-align: center;
-        }}
-        p {{
-            font-size: 16px;
-            color: black;
-        }}
-        a {{
-            display: inline-block;
-            background: #61dafb;
-            border: none;
-            border-radius: 10px;
-            color: black;
-            padding: 10px 50px;
-            text-decoration: none;
-            margin-top: 20px;
-            font-size: 16px;
-            font-weight: 500;
-        }}
-        .footer {{
-            margin-top: 20px;
-            font-size: 12px;
-            color: #aaaaaa;
-        }}
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="logo-title">
-            <div class="logo">
-                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M6 6H42L36 24L42 42H6L12 24L6 6Z" fill="currentColor"></path>
-                </svg>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Reset Your Password</title>
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap');
+            body {{
+                font-family: 'Space Grotesk', sans-serif;
+                background: black;
+                color: black;
+                margin: 0;
+                padding: 20px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }}
+            .email-container {{
+                background: grey;
+                border-radius: 15px;
+                backdrop-filter: blur(10px);
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                max-width: 600px;
+                padding: 20px;
+                text-align: center;
+            }}
+            .logo-title {{
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                justify-content: center;
+                margin-bottom: 20px;
+            }}
+            .logo {{
+                width: 24px;
+                height: 24px;
+                color: black;
+            }}
+            h1 {{
+                font-size: 24px;
+                font-weight: bold;
+                margin: 0;
+                text-align: center;
+            }}
+            p {{
+                font-size: 16px;
+                color: black;
+            }}
+            a {{
+                display: inline-block;
+                background: #61dafb;
+                border: none;
+                border-radius: 10px;
+                color: black;
+                padding: 10px 50px;
+                text-decoration: none;
+                margin-top: 20px;
+                font-size: 16px;
+                font-weight: 500;
+            }}
+            .footer {{
+                margin-top: 20px;
+                font-size: 12px;
+                color: #aaaaaa;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="email-container">
+            <div class="logo-title">
+                <div class="logo">
+                    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 6H42L36 24L42 42H6L12 24L6 6Z" fill="currentColor"></path>
+                    </svg>
+                </div>
+                <h1>Quantum Quest</h1>
             </div>
-            <h1>Quantum Quest</h1>
+            <h1>Reset Your Password</h1>
+            <p>Hi there,</p>
+            <p>We received a request to reset your password. Click the button below to reset it.</p>
+            <a href="{body}" target="_blank">Reset Password</a>
+            <p>If you didn't request a password reset, please ignore this email or reply to let us know.</p>
+            <p class="footer">This link will expire in 1 hour.</p>
         </div>
-        <h1>Reset Your Password</h1>
-        <p>Hi there,</p>
-        <p>We received a request to reset your password. Click the button below to reset it.</p>
-        <a href="{body}" target="_blank">Reset Password</a>
-        <p>If you didn't request a password reset, please ignore this email or reply to let us know.</p>
-        <p class="footer">This link will expire in 1 hour.</p>
-    </div>
-</body>
-</html>
-"""
+    </body>
+    </html>
+    """
 
     msg.attach(MIMEText(html_body, 'html'))
 
@@ -225,6 +225,53 @@ def reset_password(token):
 def logout():
     session.pop('user_id', None)
     return redirect(url_for('login'))
+
+@app.route('/update_profile', methods=['POST'])
+def update_profile():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'User not logged in'})
+
+    user = User.find_one({'_id': ObjectId(session['user_id'])})
+    if not user:
+        return jsonify({'status': 'error', 'message': 'User not found'})
+
+    username = request.form.get('username')
+    password = request.form.get('password')
+    profile_picture = request.files.get('profile_picture')
+
+    update_data = {}
+
+    if username and username != user['username']:
+        update_data['username'] = username
+
+    if password:
+        update_data['password'] = generate_password_hash(password)
+
+    if profile_picture:
+        filename = secure_filename(profile_picture.filename)
+        filepath = os.path.join('uploads', filename)
+        profile_picture.save(filepath)
+        with open(filepath, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+        update_data['profile_picture'] = encoded_string
+        os.remove(filepath)
+
+    if update_data:
+        User.update_one({'_id': ObjectId(session['user_id'])}, {'$set': update_data})
+        return jsonify({'status': 'success', 'message': 'Profile updated successfully'})
+    else:
+        return jsonify({'status': 'error', 'message': 'No changes made'})
+
+@app.route('/delete_account', methods=['POST'])
+def delete_account():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'User not logged in'})
+
+    user_id = ObjectId(session['user_id'])
+    User.collection.delete_one({'_id': user_id})
+    UserProgress.collection.delete_many({'user_id': str(user_id)})
+    session.clear()
+    return jsonify({'status': 'success', 'message': 'Account deleted successfully'})
 
 @socketio.on('message')
 def handle_message(message):

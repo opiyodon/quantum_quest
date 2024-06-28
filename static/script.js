@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const deleteAccountBtn = document.getElementById('delete-account');
     const chatHistoryList = document.getElementById('chat-history-list');
     const clearHistoryBtn = document.getElementById('clear-history');
+    const notificationContainer = document.getElementById('notification-container');
 
     let isRecording = false;
     let mediaRecorder;
@@ -112,45 +113,61 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    profileForm.onsubmit = function (e) {
-        e.preventDefault();
-        const formData = new FormData(profileForm);
-
-        fetch('/update_profile', {
-            method: 'POST',
-            body: formData
-        })
+    function setupProfileForm() {
+        profileForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch('/update_profile', {
+                method: 'POST',
+                body: formData
+            })
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    showNotification('Profile updated successfully', 'success');
-                    profileModal.style.display = "none";
+                    showNotification('success', data.message);
+                    // Update the profile picture if it was changed
+                    const fileInput = profileForm.querySelector('input[type="file"]');
+                    if (fileInput.files.length > 0) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            document.getElementById('profile-img').src = e.target.result;
+                        };
+                        reader.readAsDataURL(fileInput.files[0]);
+                    }
                 } else {
-                    showNotification(data.message, 'error');
+                    showNotification('error', data.message);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showNotification('An error occurred', 'error');
+                showNotification('error', 'An error occurred while updating the profile');
             });
+        });
     }
 
-    deleteAccountBtn.onclick = function () {
-        if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-            fetch('/delete_account', { method: 'POST' })
+    function setupDeleteAccount() {
+        deleteAccountBtn.addEventListener('click', function() {
+            showConfirmation('Are you sure you want to delete your account? This action cannot be undone.', function() {
+                fetch('/delete_account', {
+                    method: 'POST'
+                })
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        window.location.href = '/login';
+                        showNotification('success', data.message);
+                        setTimeout(() => {
+                            window.location.href = '/login';
+                        }, 2000);
                     } else {
-                        showNotification(data.message, 'error');
+                        showNotification('error', data.message);
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    showNotification('An error occurred', 'error');
+                    showNotification('error', 'An error occurred while deleting the account');
                 });
-        }
+            });
+        });
     }
 
     function loadChatHistory() {
@@ -185,34 +202,94 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     clearHistoryBtn.onclick = function () {
-        if (confirm('Are you sure you want to clear all chat history?')) {
+        showConfirmation('Are you sure you want to clear all chat history?', function () {
             fetch('/clear_all_chats')
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
                         chatHistoryList.innerHTML = '';
-                        showNotification('Chat history cleared', 'success');
+                        showNotification('success', 'Chat history cleared');
                     } else {
-                        showNotification(data.message, 'error');
+                        showNotification('error', data.message);
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    showNotification('An error occurred', 'error');
+                    showNotification('error', 'An error occurred');
                 });
-        }
+        });
     }
 
-    function showNotification(message, type) {
+    function showNotification(type, message) {
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
-        notification.textContent = message;
-        document.body.appendChild(notification);
+        const notificationContent = `
+            <div class="notification-header">
+                <span>${type === 'success' ? 'Success' : 'Error'}</span>
+                <button class="notification-close">&times;</button>
+            </div>
+            <p>${message}</p>
+            <div class="notification-progress">
+                <div class="notification-progress-bar"></div>
+            </div>
+        `;
+        notification.innerHTML = notificationContent;
+        notificationContainer.appendChild(notification);
+
+        const progressBar = notification.querySelector('.notification-progress-bar');
+        const closeButton = notification.querySelector('.notification-close');
+
+        closeButton.addEventListener('click', () => {
+            notificationContainer.removeChild(notification);
+        });
+
+        const duration = 5000; // 5 seconds
+        progressBar.style.transition = `width ${duration}ms linear`;
         setTimeout(() => {
-            notification.remove();
-        }, 3000);
+            progressBar.style.width = '100%';
+        }, 10);
+
+        setTimeout(() => {
+            notificationContainer.removeChild(notification);
+        }, duration);
     }
 
-    // Load chat history on page load
+    function showConfirmation(message, onConfirm) {
+        const confirmation = document.createElement('div');
+        confirmation.className = 'confirmation';
+        confirmation.innerHTML = `
+            <div class="confirmation-header">
+                <span>Confirmation</span>
+                <button class="confirmation-close">&times;</button>
+            </div>
+            <p>${message}</p>
+            <div class="confirmation-actions">
+                <button class="confirm-yes">Yes</button>
+                <button class="confirm-no">No</button>
+            </div>
+        `;
+        notificationContainer.appendChild(confirmation);
+
+        const closeButton = confirmation.querySelector('.confirmation-close');
+        const yesButton = confirmation.querySelector('.confirm-yes');
+        const noButton = confirmation.querySelector('.confirm-no');
+
+        closeButton.addEventListener('click', () => {
+            notificationContainer.removeChild(confirmation);
+        });
+
+        noButton.addEventListener('click', () => {
+            notificationContainer.removeChild(confirmation);
+        });
+
+        yesButton.addEventListener('click', () => {
+            notificationContainer.removeChild(confirmation);
+            onConfirm();
+        });
+    }
+
+    // Initialize everything
+    setupProfileForm();
+    setupDeleteAccount();
     loadChatHistory();
 });
