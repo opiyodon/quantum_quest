@@ -5,14 +5,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const userInput = document.getElementById('user-input');
     const sendBtn = document.getElementById('send-btn');
     const micBtn = document.getElementById('mic-btn');
+    const chatHistoryList = document.getElementById('chat-history-list');
+    const clearHistoryBtn = document.getElementById('clear-history');
+    const notificationContainer = document.getElementById('notification-container');
     const profileImg = document.getElementById('profile-img');
+    const profileBtn = document.getElementById('profile-btn');
     const profileModal = document.getElementById('profile-modal');
     const closeModal = document.getElementsByClassName('close')[0];
     const profileForm = document.getElementById('profile-form');
     const deleteAccountBtn = document.getElementById('delete-account');
-    const chatHistoryList = document.getElementById('chat-history-list');
-    const clearHistoryBtn = document.getElementById('clear-history');
-    const notificationContainer = document.getElementById('notification-container');
 
     let isRecording = false;
     let mediaRecorder;
@@ -99,73 +100,88 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(error => console.error('Error:', error));
     }
 
-    profileImg.onclick = function () {
+    profileImg.onclick = function(event) {
+        event.stopPropagation();
+        const dropdownContent = document.querySelector('.dropdown-content');
+        dropdownContent.style.display = dropdownContent.style.display === 'block' ? 'none' : 'block';
+    }
+
+    profileBtn.onclick = function() {
         profileModal.style.display = "block";
     }
 
-    closeModal.onclick = function () {
+    closeModal.onclick = function() {
         profileModal.style.display = "none";
     }
 
-    window.onclick = function (event) {
+    window.onclick = function(event) {
         if (event.target == profileModal) {
             profileModal.style.display = "none";
+        }
+        if (!event.target.matches('#profile-img')) {
+            const dropdowns = document.getElementsByClassName("dropdown-content");
+            for (let i = 0; i < dropdowns.length; i++) {
+                let openDropdown = dropdowns[i];
+                if (openDropdown.style.display === 'block') {
+                    openDropdown.style.display = 'none';
+                }
+            }
         }
     }
 
     function setupProfileForm() {
-        profileForm.addEventListener('submit', function(e) {
+        profileForm.addEventListener('submit', function (e) {
             e.preventDefault();
             const formData = new FormData(this);
             fetch('/update_profile', {
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    showNotification('success', data.message);
-                    // Update the profile picture if it was changed
-                    const fileInput = profileForm.querySelector('input[type="file"]');
-                    if (fileInput.files.length > 0) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            document.getElementById('profile-img').src = e.target.result;
-                        };
-                        reader.readAsDataURL(fileInput.files[0]);
-                    }
-                } else {
-                    showNotification('error', data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('error', 'An error occurred while updating the profile');
-            });
-        });
-    }
-
-    function setupDeleteAccount() {
-        deleteAccountBtn.addEventListener('click', function() {
-            showConfirmation('Are you sure you want to delete your account? This action cannot be undone.', function() {
-                fetch('/delete_account', {
-                    method: 'POST'
-                })
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
                         showNotification('success', data.message);
-                        setTimeout(() => {
-                            window.location.href = '/login';
-                        }, 2000);
+                        // Update the profile picture if it was changed
+                        const fileInput = profileForm.querySelector('input[type="file"]');
+                        if (fileInput.files.length > 0) {
+                            const reader = new FileReader();
+                            reader.onload = function (e) {
+                                document.getElementById('profile-img').src = e.target.result;
+                            };
+                            reader.readAsDataURL(fileInput.files[0]);
+                        }
                     } else {
                         showNotification('error', data.message);
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    showNotification('error', 'An error occurred while deleting the account');
+                    showNotification('error', 'An error occurred while updating the profile');
                 });
+        });
+    }
+
+    function setupDeleteAccount() {
+        deleteAccountBtn.addEventListener('click', function () {
+            showConfirmation('Are you sure you want to delete your account? This action cannot be undone.', function () {
+                fetch('/delete_account', {
+                    method: 'POST'
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            showNotification('success', data.message);
+                            setTimeout(() => {
+                                window.location.href = '/login';
+                            }, 2000);
+                        } else {
+                            showNotification('error', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showNotification('error', 'An error occurred while deleting the account');
+                    });
             });
         });
     }
