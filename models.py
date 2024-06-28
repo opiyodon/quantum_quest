@@ -60,3 +60,7 @@ class User:
     @staticmethod
     def update_one(query, update):
         return User.collection.update_one(query, update)
+    
+    @staticmethod
+    def insert_one(data):
+        return User.collection.insert_one(data)

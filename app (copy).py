@@ -1,22 +1,22 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
-from itsdangerous import URLSafeTimedSerializer, SignatureExpired
-from config import Config
+from bson import ObjectId
+from models import User, Question, ChatHistory, UserProgress
 from database import db
-from models import Question, UserProgress, User
+import openai
 import os
 import base64
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from bson import ObjectId
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired
+from flask_mail import Mail, Message
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config.from_object(Config)
+app.config.from_object('config.Config')
 socketio = SocketIO(app)
+openai.api_key = os.getenv("OPENAI_API_KEY")
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+mail = Mail(app)
 
 def send_email(to_email, subject, body):
     msg = MIMEMultipart('alternative')
@@ -132,23 +132,19 @@ def send_email(to_email, subject, body):
 
 @app.route('/')
 def index():
-    if 'user_id' in session:
-        user = User.find_one({'_id': ObjectId(session['user_id'])})
-        if user:
-            return render_template('index.html', user=user)
-    return redirect(url_for('login'))
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    user = User.find_one({'_id': ObjectId(session['user_id'])})
+    return render_template('index.html', user=user)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        user = User.find_one({'email': email})
-        if user and check_password_hash(user['password'], password):
+        user = User.find_one({'email': request.form['email']})
+        if user and check_password_hash(user['password'], request.form['password']):
             session['user_id'] = str(user['_id'])
             return jsonify({'status': 'success', 'redirect': url_for('index')})
-        else:
-            return jsonify({'status': 'error', 'message': 'Invalid credentials'})
+        return jsonify({'status': 'error', 'message': 'Invalid credentials'})
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -157,36 +153,33 @@ def register():
         username = request.form['username']
         email = request.form['email']
         password = generate_password_hash(request.form['password'])
-        
+
         existing_user = User.find_one({'email': email})
         if existing_user:
             return jsonify({'status': 'error', 'message': 'Email already registered'})
-        
-        encoded_string = None
+
         if 'profile_picture' in request.files:
             profile_picture = request.files['profile_picture']
             if profile_picture.filename != '':
-                try:
-                    filename = secure_filename(profile_picture.filename)
-                    profile_picture.save(os.path.join('uploads', filename))
-                    
-                    with open(os.path.join('uploads', filename), "rb") as image_file:
-                        encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
-                except Exception as e:
-                    return jsonify({'status': 'error', 'message': f'Error uploading file: {str(e)}'})
-        
-        try:
-            user = User.insert_one({
-                'username': username,
-                'email': email,
-                'password': password,
-                'profile_picture': encoded_string
-            })
-            
-            session['user_id'] = str(user.inserted_id)
-            return jsonify({'status': 'success', 'redirect': url_for('index')})
-        except Exception as e:
-            return jsonify({'status': 'error', 'message': f'Error registering user: {str(e)}'})
+                filename = secure_filename(profile_picture.filename)
+                profile_picture.save(os.path.join('uploads', filename))
+
+                with open(os.path.join('uploads', filename), "rb") as image_file:
+                    encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+            else:
+                encoded_string = None
+        else:
+            encoded_string = None
+
+        user = User.insert_one({
+            'username': username,
+            'email': email,
+            'password': password,
+            'profile_picture': encoded_string
+        })
+
+        session['user_id'] = str(user.inserted_id)
+        return jsonify({'status': 'success', 'redirect': url_for('index')})
     return render_template('register.html')
 
 @app.route('/forgot_password', methods=['GET', 'POST'])
@@ -197,8 +190,8 @@ def forgot_password():
         if user:
             token = s.dumps(email, salt='email-confirm')
             link = url_for('reset_password', token=token, _external=True)
-            if send_email(email, 'Reset Your Password', link):
-                return jsonify({'status': 'success', 'message': 'Email sent, check your inbox to reset your password'})
+            if send_email(email, 'Reset Your Password', f'Reset password link: {link}'):
+                return jsonify({'status': 'success', 'message': 'Email sent, check your email to reset your password'})
             else:
                 return jsonify({'status': 'error', 'message': 'Failed to send email'})
         else:
@@ -226,16 +219,80 @@ def logout():
     session.pop('user_id', None)
     return redirect(url_for('login'))
 
-@socketio.on('message')
-def handle_message(message):
-    response_type = generate_response(message['text'])
-    
-    if response_type == "start_quiz":
-        question = get_question(message['subject'], message['difficulty'])
-        emit('question', {'id': str(question['_id']), 'text': question['question_text']})
-    elif response_type == "answer_question":
-        is_correct, explanation = check_answer(message['question_id'], message['answer'])
-        emit('answer', {'is_correct': is_correct, 'explanation': explanation})
+@app.route('/update_profile', methods=['POST'])
+def update_profile():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Not logged in'})
+
+    user = User.find_one({'_id': ObjectId(session['user_id'])})
+    if not user:
+        return jsonify({'status': 'error', 'message': 'User not found'})
+
+    updates = {}
+    if 'username' in request.form:
+        updates['username'] = request.form['username']
+    if 'password' in request.form:
+        updates['password'] = generate_password_hash(request.form['password'])
+    if 'profile_picture' in request.files:
+        file = request.files['profile_picture']
+        if file:
+            encoded_image = base64.b64encode(file.read()).decode('utf-8')
+            updates['profile_picture'] = f"data:image/png;base64,{encoded_image}"
+
+    if updates:
+        User.update_one({'_id': ObjectId(session['user_id'])}, {'$set': updates})
+        return jsonify({'status': 'success', 'message': 'Profile updated successfully'})
+    return jsonify({'status': 'error', 'message': 'No updates provided'})
+
+@socketio.on('user_message')
+def handle_message(data):
+    user_id = session.get('user_id')
+    if not user_id:
+        return
+
+    user_message = data['message']
+
+    # Call OpenAI API
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are Quantum Quest, an AI assistant specializing in science education."},
+            {"role": "user", "content": user_message}
+        ]
+    )
+
+    bot_response = response['choices'][0]['message']['content']
+
+    # Save to chat history
+    ChatHistory.create(user_id, user_message, bot_response)
+
+    emit('bot_message', {'message': bot_response})
+
+@app.route('/chat_history')
+def chat_history():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Not logged in'})
+
+    history = ChatHistory.find({'user_id': ObjectId(session['user_id'])})
+    return jsonify({'status': 'success', 'history': list(history)})
+
+@app.route('/delete_chat/<chat_id>')
+def delete_chat(chat_id):
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Not logged in'})
+
+    result = ChatHistory.delete_one({'_id': ObjectId(chat_id), 'user_id': ObjectId(session['user_id'])})
+    if result.deleted_count:
+        return jsonify({'status': 'success', 'message': 'Chat deleted'})
+    return jsonify({'status': 'error', 'message': 'Chat not found or not authorized'})
+
+@app.route('/clear_all_chats')
+def clear_all_chats():
+    if 'user_id' not in session:
+        return jsonify({'status': 'error', 'message': 'Not logged in'})
+
+    result = ChatHistory.delete_many({'user_id': ObjectId(session['user_id'])})
+    return jsonify({'status': 'success', 'message': f'{result.deleted_count} chats deleted'})
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
