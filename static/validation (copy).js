@@ -47,9 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function submitForm(form, button) {
         const formData = new FormData(form);
-        const action = form.getAttribute('action') || window.location.href;
 
-        fetch(action, {
+        fetch(form.action, {
             method: 'POST',
             body: formData
         })
