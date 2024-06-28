@@ -1,0 +1,1120 @@
+modify these codes, `templates/index.html`=`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Quest</title>
+    <link rel="stylesheet" href="../static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="chat-container">
+        <header>
+            <div class="logo-title">
+                <div class="logo">
+                    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6H42L36 24L42 42H6L12 24L6 6Z" fill="currentColor"></path></svg>
+                </div>
+                <h1>Quantum Quest</h1>
+            </div>
+            <button id="close-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256">
+                    <path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path>
+                </svg>
+            </button>
+        </header>
+        <div id="chat-content">
+            <h2>Welcome to Quantum Quest!</h2>
+            <p>I'm your guide to the cosmos. Ask me anything!</p>
+            <div id="chat-messages"></div>
+        </div>
+        <div id="input-container">
+            <textarea id="user-input" class="custom-scrollbar" placeholder="Ask me anything"></textarea>
+            <button id="mic-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256">
+                    <path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"></path>
+                </svg>
+            </button>
+            <button id="send-btn">Send</button>
+        </div>        
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="../static/script.js"></script>
+</body>
+</html>`,`static/style.css`=`body {
+    font-family: 'Space Grotesk', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #101a23;
+    color: white;
+}
+
+#auth-container {
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-align: center;
+}
+
+h2 {
+    margin-bottom: 20px;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+}
+
+input {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 10px;
+    padding: 10px;
+    margin: 10px 0;
+    color: white;
+    font-size: 16px;
+}
+
+input::placeholder {
+    color: #ccc;
+}
+
+
+#chat-container {
+    width: 100%;
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #101a23;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 40px;
+    background-color: #101a23;
+    border-bottom: 1px solid #223649;
+}
+
+.logo-title {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.logo {
+    width: 16px;
+    height: 16px;
+    color: white;
+}
+
+header h1 {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 0;
+}
+
+#close-btn {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    background-color: #223649;
+}
+
+#chat-content {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 20px 160px;
+    display: flex;
+    flex-direction: column;
+}
+
+#chat-content h2 {
+    text-align: center;
+    font-size: 18px;
+    margin-bottom: 8px;
+}
+
+#chat-content > p {
+    text-align: center;
+    font-size: 16px;
+    margin-bottom: 20px;
+    color: #fff;
+}
+
+#chat-messages {
+    display: flex;
+    flex-direction: column;
+}
+
+.message {
+    max-width: 80%;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.bot-message {
+    align-self: flex-start;
+    background-color: #223649;
+}
+
+.user-message {
+    align-self: flex-end;
+    background-color: #0d80f2;
+}
+
+.sender {
+    font-size: 13px;
+    color: #90adcb;
+    margin-bottom: 4px;
+}
+
+#input-container {
+    display: flex;
+    padding: 12px 16px;
+    background-color: #101a23;
+    align-items: center;
+    width: 90%;
+    margin: 0 auto;
+}
+
+#user-input {
+    flex-grow: 1;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 12px;
+    background-color: #223649;
+    color: white;
+    font-size: 16px;
+    max-height: 150px; /* Set the maximum height for the textarea */
+    resize: none; /* Prevent manual resizing */
+    overflow-y: hidden; /* Hide scrollbar */
+    outline: none;
+}
+
+#user-input::placeholder {
+    color: #90adcb;
+}
+
+.custom-scrollbar {
+    /* Set the textarea height */
+    height: 30px;
+    max-height: 150px; /* Set the maximum height in pixels */
+    overflow-y: auto; /* Enable vertical scrollbar */
+
+    /* Add padding inside the textarea */
+    padding: 10px; /* Example: 10px padding on all sides */
+
+    /* Customize scrollbar */
+    scrollbar-width: thin; /* "auto" or "thin" for Firefox */
+    scrollbar-color: #888 #f0f0f0; /* scrollbar track and thumb colors */
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px; /* width of the scrollbar */
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f0f0f0; /* color of the scrollbar track */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #888; /* color of the scrollbar thumb */
+    border-radius: 4px; /* roundness of the scrollbar thumb */
+}
+
+#mic-btn {
+    background: none;
+    border: none;
+    color: #90adcb;
+    cursor: pointer;
+    padding: 8px;
+    margin-left: 8px;
+}
+
+#send-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 20px;
+    background-color: #0d80f2;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    margin-left: 8px;
+}
+
+@media (max-width: 768px) {
+    #chat-container {
+        width: 100%;
+        height: 100vh;
+        border-radius: 0;
+    }
+
+    #chat-content {
+        padding: 20px;
+    }
+}
+
+button {
+    background: #61dafb;
+    border: none;
+    border-radius: 10px;
+    padding: 10px;
+    color: #101a23;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+button .button-text {
+    display: inline-block;
+}
+
+button.loading .button-text {
+    display: none;
+}
+
+button.loading .button-loader {
+    display: inline-block;
+}
+
+.button-loader {
+    display: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #101a23;
+    border-top: 2px solid #61dafb;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+p {
+    margin: 10px 0;
+}
+
+a {
+    color: #61dafb;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+#notification-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.notification {
+    background: rgba(27, 43, 56, 0.9);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+    position: relative;
+}
+
+.notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.notification-close {
+    background: none;
+    border: none;
+    color: #61dafb;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0;
+}
+
+.notification-progress {
+    background: rgba(97, 218, 251, 0.3);
+    height: 3px;
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    border-radius: 0 0 5px 5px;
+}
+
+.notification-progress-bar {
+    background: #61dafb;
+    height: 100%;
+    width: 0;
+    transition: width linear;
+}
+
+.success {
+    border-left: 4px solid #4CAF50;
+}
+
+.error {
+    border-left: 4px solid #F44336;
+}
+
+.loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(16, 26, 35, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #61dafb;
+    border-top: 5px solid #1b2b38;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+`,`static/script.js`=`const socket = io();
+
+let isRecording = false;
+let mediaRecorder;
+let audioChunks = [];
+
+function sendMessage() {
+    const input = document.getElementById('user-input');
+    const message = input.value.trim();
+    if (message) {
+        input.value = '';
+        addMessageToChat('You', message, 'user-message');
+        socket.emit('user_message', { message: message });
+    }
+}
+
+socket.on('bot_message', (data) => {
+    addMessageToChat('Quantum Quest', data.message, 'bot-message');
+});
+
+socket.on('bot_question', (data) => {
+    addMessageToChat('Quantum Quest', data.question, 'bot-message');
+});
+
+socket.on('bot_result', (data) => {
+    const resultText = data.correct ? 'Correct!' : 'Incorrect.';
+    addMessageToChat('Quantum Quest', `${resultText} ${data.explanation}`, 'bot-message');
+});
+
+socket.on('bot_progress', (data) => {
+    let progressText = 'Your Progress:\n';
+    Object.entries(data.progress).forEach(([subject, stats]) => {
+        progressText += `${subject}: ${stats.correct_answers}/${stats.total_questions}\n`;
+    });
+    addMessageToChat('Quantum Quest', progressText, 'bot-message');
+});
+
+socket.on('bot_hint', (data) => {
+    addMessageToChat('Quantum Quest', `Hint: ${data.hint}`, 'bot-message');
+});
+
+function addMessageToChat(sender, message, className) {
+    const chatMessages = document.getElementById('chat-messages');
+    const messageElement = document.createElement('div');
+    messageElement.className = `message ${className}`;
+    messageElement.innerHTML = `
+        <div class="sender">${sender}</div>
+        <div class="message-content">${message}</div>
+    `;
+    chatMessages.appendChild(messageElement);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+document.getElementById('user-input').addEventListener('keypress', function(event) {
+    if (event.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+document.getElementById('send-btn').addEventListener('click', sendMessage);
+
+document.getElementById('close-btn').addEventListener('click', function() {
+    if (confirm('Are you sure you want to close Quantum Quest?')) {
+        window.close();
+    }
+});
+
+
+document.addEventListener("DOMContentLoaded", function() {
+    const userInput = document.getElementById("user-input");
+    const defaultHeight = "30px";
+
+    userInput.addEventListener("input", function() {
+        // Reset textarea height to auto to shrink if needed
+        userInput.style.height = "auto";
+        
+        // Calculate the scroll height and set it as the new height
+        userInput.style.height = userInput.scrollHeight + "px";
+
+        // Set default height when input is empty
+        if (userInput.value.trim() === "") {
+            userInput.style.height = defaultHeight;
+        }
+    });
+});
+
+
+document.getElementById('mic-btn').addEventListener('click', toggleRecording);
+
+async function toggleRecording() {
+    if (!isRecording) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            startRecording(stream);
+        } catch (err) {
+            console.error('Error accessing microphone:', err);
+            alert('Unable to access the microphone. Please check your permissions.');
+        }
+    } else {
+        stopRecording();
+    }
+}
+
+function startRecording(stream) {
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+
+    mediaRecorder.addEventListener('dataavailable', event => {
+        audioChunks.push(event.data);
+    });
+
+    mediaRecorder.addEventListener('stop', sendAudioToServer);
+
+    mediaRecorder.start();
+    isRecording = true;
+    document.getElementById('mic-btn').style.color = 'red';
+}
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        isRecording = false;
+        document.getElementById('mic-btn').style.color = '#90adcb';
+    }
+}
+
+function sendAudioToServer() {
+    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'recording.webm');
+
+    fetch('/transcribe', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.transcription) {
+            document.getElementById('user-input').value = data.transcription;
+            sendMessage();
+        } else {
+            console.error('Transcription failed:', data.error);
+            alert('Sorry, I couldn\'t understand that. Could you try again?');
+        }
+    })
+    .catch(error => {
+        console.error('Error sending audio to server:', error);
+        alert('There was an error processing your speech. Please try again.');
+    });
+}
+
+// Initialize the chat with a welcome message
+window.addEventListener('load', () => {
+    socket.emit('start_chat');
+});
+`,`static/validation.js`=`document.addEventListener('DOMContentLoaded', () => {
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            validateForm(form);
+        });
+    });
+
+    function validateForm(form) {
+        const inputs = form.querySelectorAll('input');
+        let valid = true;
+        const button = form.querySelector('button');
+
+        inputs.forEach(input => {
+            if (!input.value) {
+                valid = false;
+                showNotification('error', `Please fill out the ${input.name} field.`);
+            }
+        });
+
+        if (valid) {
+            button.disabled = true;
+            button.classList.add('loading');
+            submitForm(form, button);
+        }
+    }
+
+    function submitForm(form, button) {
+        const formData = new FormData(form);
+
+        fetch(action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            button.disabled = false;
+            button.classList.remove('loading');
+
+            if (data.status === 'success') {
+                form.reset();
+                window.location.href = data.redirect || 'index.html';
+            } else {
+                showNotification('error', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('error', 'An error occurred during form submission.');
+            button.disabled = false;
+            button.classList.remove('loading');
+        });
+    }
+
+    function showNotification(type, message) {
+        const notificationContainer = document.getElementById('notification-container');
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        
+        const notificationContent = `
+            <div class="notification-header">
+                <span>${type === 'success' ? 'Success' : 'Error'}</span>
+                <button class="notification-close">&times;</button>
+            </div>
+            <p>${message}</p>
+            <div class="notification-progress">
+                <div class="notification-progress-bar"></div>
+            </div>
+        `;
+        
+        notification.innerHTML = notificationContent;
+        notificationContainer.appendChild(notification);
+
+        const progressBar = notification.querySelector('.notification-progress-bar');
+        const closeButton = notification.querySelector('.notification-close');
+
+        closeButton.addEventListener('click', () => {
+            notificationContainer.removeChild(notification);
+        });
+
+        const duration = 5000; // 5 seconds
+        progressBar.style.transition = `width ${duration}ms linear`;
+        setTimeout(() => {
+            progressBar.style.width = '100%';
+        }, 10);
+
+        setTimeout(() => {
+            notificationContainer.removeChild(notification);
+        }, duration);
+    }
+});
+`,`app.py`=`from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask_socketio import SocketIO, emit
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired
+from config import Config
+from database import db
+from models import Question, UserProgress, User
+import os
+import base64
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from bson import ObjectId
+
+app = Flask(__name__)
+app.config.from_object(Config)
+socketio = SocketIO(app)
+s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
+def send_email(to_email, subject, body):
+    msg = MIMEMultipart()
+    msg['From'] = app.config['MAIL_USERNAME']
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+
+    try:
+        with smtplib.SMTP(app.config['MAIL_SERVER'], app.config['MAIL_PORT']) as server:
+            if app.config['MAIL_USE_TLS']:
+                server.starttls()
+            server.login(app.config['MAIL_USERNAME'], app.config['MAIL_PASSWORD'])
+            server.sendmail(app.config['MAIL_USERNAME'], to_email, msg.as_string())
+        print(f'Email sent to {to_email}')
+        return True
+    except Exception as e:
+        print(f'Failed to send email to {to_email}: {e}')
+        return False
+
+@app.route('/')
+def index():
+    if 'user_id' in session:
+        user = User.find_one({'_id': ObjectId(session['user_id'])})
+        if user:
+            welcome_message = f"Welcome back, {user['username']}!"
+            flash(welcome_message)
+            return render_template('index.html', welcome_message=welcome_message)
+    return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        user = User.find_one({'email': email})
+        if user and check_password_hash(user['password'], password):
+            session['user_id'] = str(user['_id'])
+            return jsonify({'status': 'success', 'redirect': url_for('index')})
+        else:
+            return jsonify({'status': 'error', 'message': 'Invalid credentials'})
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = generate_password_hash(request.form['password'])
+        
+        existing_user = User.find_one({'email': email})
+        if existing_user:
+            return jsonify({'status': 'error', 'message': 'Email already registered'})
+        
+        if 'profile_picture' in request.files:
+            profile_picture = request.files['profile_picture']
+            if profile_picture.filename != '':
+                filename = secure_filename(profile_picture.filename)
+                profile_picture.save(os.path.join('uploads', filename))
+                
+                with open(os.path.join('uploads', filename), "rb") as image_file:
+                    encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+            else:
+                encoded_string = None
+        else:
+            encoded_string = None
+        
+        user = User.insert_one({
+            'username': username,
+            'email': email,
+            'password': password,
+            'profile_picture': encoded_string
+        })
+        
+        session['user_id'] = str(user.inserted_id)
+        return jsonify({'status': 'success', 'redirect': url_for('index')})
+    return render_template('register.html')
+
+@app.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form['email']
+        user = User.find_one({'email': email})
+        if user:
+            token = s.dumps(email, salt='email-confirm')
+            link = url_for('reset_password', token=token, _external=True)
+            if send_email(email, 'Reset Your Password', f'Reset password link: {link}'):
+                return jsonify({'status': 'success', 'message': 'Email sent, check your email to reset your password'})
+            else:
+                return jsonify({'status': 'error', 'message': 'Failed to send email'})
+        else:
+            return jsonify({'status': 'error', 'message': 'Email is not registered with our app'})
+    return render_template('forgot_password.html')
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    try:
+        email = s.loads(token, salt='email-confirm', max_age=3600)
+    except SignatureExpired:
+        return '<h1>The token is expired!</h1>'
+    if request.method == 'POST':
+        new_password = generate_password_hash(request.form['password'])
+        User.update_one({'email': email}, {'$set': {'password': new_password}})
+        return jsonify({'status': 'success', 'message': 'Password reset successful'})
+    return render_template('reset_password.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    return redirect(url_for('login'))
+
+@socketio.on('message')
+def handle_message(message):
+    response_type = generate_response(message['text'])
+    
+    if response_type == "start_quiz":
+        question = get_question(message['subject'], message['difficulty'])
+        emit('question', {'id': str(question['_id']), 'text': question['question_text']})
+    elif response_type == "answer_question":
+        is_correct, explanation = check_answer(message['question_id'], message['answer'])
+        update_user_progress(message['user_id'], message['subject'], is_correct)
+        emit('result', {'correct': is_correct, 'explanation': explanation})
+    elif response_type == "show_progress":
+        progress = get_user_progress(message['user_id'])
+        emit('progress', {'progress': progress})
+    elif response_type == "provide_hint":
+        question = Question.find_one({"_id": ObjectId(message['question_id'])})
+        emit('hint', {'hint': f"Think about {question['subject']} concepts related to {question['question_text'].split()[0]}"})
+
+def generate_response(text):
+    if "start quiz" in text.lower():
+        return "start_quiz"
+    elif "answer" in text.lower():
+        return "answer_question"
+    elif "progress" in text.lower():
+        return "show_progress"
+    elif "hint" in text.lower():
+        return "provide_hint"
+    else:
+        return "chat"
+
+def get_question(subject, difficulty):
+    return Question.find_one({"subject": subject, "difficulty": difficulty})
+
+def check_answer(question_id, answer):
+    question = Question.find_one({"_id": ObjectId(question_id)})
+    is_correct = answer.lower() == question['correct_answer'].lower()
+    return is_correct, question['explanation']
+
+def update_user_progress(user_id, subject, is_correct):
+    UserProgress.update_one(
+        {"user_id": ObjectId(user_id), "subject": subject},
+        {"$inc": {"correct" if is_correct else "incorrect": 1}},
+        upsert=True
+    )
+
+def get_user_progress(user_id):
+    progress = UserProgress.find({"user_id": ObjectId(user_id)})
+    return list(progress)
+
+if __name__ == '__main__':
+    socketio.run(app, debug=True)
+`,`config.py`=`import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Config:
+    SECRET_KEY = os.getenv('SECRET_KEY')
+    MONGODB_URI = os.getenv('MONGODB_URI')
+    MONGODB_DATABASE = os.getenv('MONGODB_DATABASE')
+    MAIL_SERVER = os.getenv('MAIL_SERVER')
+    MAIL_PORT = int(os.getenv('MAIL_PORT'))
+    MAIL_USERNAME = os.getenv('MAIL_USERNAME')
+    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
+    MAIL_USE_TLS = os.getenv('MAIL_USE_TLS') == 'True'
+    MAIL_USE_SSL = os.getenv('MAIL_USE_SSL') == 'True'
+`,`.env`=`SECRET_KEY=your_secret_key_here
+MONGODB_URI=mongodb+srv://opiyodon9:MCksNe7O7e0EpbJQ@quantumquest.umuj2il.mongodb.net/quantum_quest
+MONGODB_DATABASE=quantum_quest
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=opiyodon9@gmail.com
+MAIL_PASSWORD=fuyl xfaa aeni ppzw
+MAIL_USE_TLS=True
+MAIL_USE_SSL=False
+`,`models.py`=`from database import db
+
+class Question:
+    collection = db.questions
+
+    @staticmethod
+    def create(subject, difficulty, question_text, correct_answer, explanation):
+        return Question.collection.insert_one({
+            "subject": subject,
+            "difficulty": difficulty,
+            "question_text": question_text,
+            "correct_answer": correct_answer,
+            "explanation": explanation
+        })
+
+    @staticmethod
+    def find(query):
+        return Question.collection.find(query)
+
+    @staticmethod
+    def find_one(query):
+        return Question.collection.find_one(query)
+
+class UserProgress:
+    collection = db.user_progress
+
+    @staticmethod
+    def create(user_id, subject, correct_answers=0, total_questions=0):
+        return UserProgress.collection.insert_one({
+            "user_id": user_id,
+            "subject": subject,
+            "correct_answers": correct_answers,
+            "total_questions": total_questions
+        })
+
+    @staticmethod
+    def find(query):
+        return UserProgress.collection.find(query)
+
+    @staticmethod
+    def update(query, update):
+        return UserProgress.collection.update_one(query, update, upsert=True)
+
+class User:
+    collection = db.users
+
+    @staticmethod
+    def create(username, email, password, profile_picture):
+        return User.collection.insert_one({
+            "username": username,
+            "email": email,
+            "password": password,
+            "profile_picture": profile_picture
+        })
+
+    @staticmethod
+    def find_one(query):
+        return User.collection.find_one(query)
+
+    @staticmethod
+    def update_one(query, update):
+        return User.collection.update_one(query, update)
+`,`populate_db.py`=`from database import db
+from models import Question
+
+def populate_questions():
+    questions = [
+        {
+            "subject": "Physics",
+            "difficulty": "Easy",
+            "question_text": "What is the speed of light in vacuum?",
+            "correct_answer": "299,792,458 meters per second",
+            "explanation": "The speed of light in vacuum, commonly denoted as c, is a fundamental constant in physics."
+        },
+        {
+            "subject": "Astronomy",
+            "difficulty": "Medium",
+            "question_text": "What is a black hole?",
+            "correct_answer": "A region of spacetime where gravity is so strong that nothing can escape from it",
+            "explanation": "Black holes are formed when massive stars collapse at the end of their life cycle."
+        },
+        {
+            "subject": "Quantum Mechanics",
+            "difficulty": "Hard",
+            "question_text": "What is the Heisenberg Uncertainty Principle?",
+            "correct_answer": "It is impossible to simultaneously measure both the position and momentum of a particle with absolute precision",
+            "explanation": "This principle is fundamental to quantum mechanics and sets limits on the precision of certain pairs of physical properties of a particle."
+        },
+        # Add more questions here
+    ]
+
+    for q in questions:
+        Question.create(**q)
+
+    print("Database populated with sample questions.")
+
+if __name__ == "__main__":
+    populate_questions()
+`, and instead of the close button icon, i have a circular profile image which when i click a dropdown opens where i can logout or go to my profile which opens a modal which appears on the chat area side, here make sure i can update my username, profile image and password and also at the bottom add a danger zone for deleting account from mongo database, when i update my profile, a notification with the necessary message is displayed, also in the chat area, divide it so that on the left side i can see my chat history and when i click on the chat it should open in the chat area, i should be able to delete one chat history, rename it or clear all chats, MAKE SURE THIS FUNCTIONALITY IS WORKING AND CHAT HISTORY IS BEING SENT TO DATABASE AND FETCHED FROM DATABASE TO SHOW IN CHAT SCREEN FOR CHAT HISTORY PERSISTANCE,in the chat area, MAKE SURE TO ADD chat date in the middle and it should appear for every chat on a new day, like then one in WHATSAPP, and the chat messages should have profile pictures for the bot and user and it should have who is texting, the message a timestamp, it should be real time and the chat messages MUST BE IN MARKDOWN FORMAT SO THAT THEY ARE STYLED AND DONT LOOK LIKE NORMAL WHATSAPP CHATS, MAKE SURE ALL THE FUNCTIONALITY IS WORKING AND I CAN SEND A MESSAGE AND THE BOT REPLIES IN REAL TIME AS IF ITS TYPING AS I SEE EVERY WORD ITS TYPING, WHILE BOT IS FETCHING RESPONSE SHOW A FUTURISTIC SUBTLE LOADING FOR THE BOT MESSAGE, MAYBE SAY ITS THINKING, GENERATE ALL THE FULL CODES FOR ALL THE PAGES, you can use open ai to fetch data from internet to fit this description=`# Quantum Quest: The Interstellar Learning Companion
+
+## Table of Contents
+1. [Introduction](#introduction)
+2. [Features](#features)
+3. [Problem Statement](#problem-statement)
+4. [How It Works](#how-it-works)
+5. [Installation](#installation)
+6. [Usage](#usage)
+7. [Dataset](#dataset)
+8. [Hosting](#hosting)
+9. [Contributing](#contributing)
+10. [License](#license)
+
+## Introduction
+
+Quantum Quest is an AI-powered educational chatbot designed to make learning science engaging, interactive, and accessible. It covers various scientific disciplines, offering questions that span from basic concepts to cutting-edge theories in physics, astronomy, and space exploration.
+
+## Features
+
+- Interactive quiz-style conversations
+- Real-time chat interface
+- Natural language processing for understanding user intents
+- Adaptive difficulty based on user performance
+- Progress tracking across different subjects
+- Instant feedback and explanations for answers
+- Hint system for challenging questions
+
+## Problem Statement
+
+Quantum Quest addresses several challenges in science education:
+
+1. **Accessibility**: Provides a 24/7 available learning platform, allowing students to learn at their own pace.
+2. **Engagement**: Uses an interactive chatbot interface to increase student motivation and retention.
+3. **Personalized Learning**: Adapts to individual knowledge levels by offering questions of varying difficulty.
+4. **Immediate Feedback**: Offers instant feedback on answers, including explanations, to enhance understanding.
+5. **Broad Subject Coverage**: Covers various scientific topics, encouraging exploration of different areas of science.
+6. **Self-Assessment**: Enables students to gauge their understanding through quizzes and progress tracking.
+7. **Supplementary Learning**: Acts as a companion to traditional learning methods, reinforcing concepts.
+8. **STEM Education Support**: Encourages interest in science, technology, engineering, and mathematics.
+
+## How It Works
+
+1. **User Interface**: A web-based chat interface where users interact with the Quantum Quest bot.
+2. **Natural Language Processing**: Uses spaCy to analyze user input and determine intent (e.g., start quiz, answer question, request hint).
+3. **Quiz Engine**: Selects appropriate questions based on subject and difficulty, checks answers, and manages user progress.
+4. **Database**: MongoDB stores questions, user progress, and other relevant data.
+5. **Real-time Communication**: Flask-SocketIO enables real-time interaction between the frontend and backend.
+
+Flow:
+1. User sends a message through the chat interface.
+2. The message is sent to the backend via WebSocket.
+3. NLP determines the user's intent.
+4. The backend performs the appropriate action based on the intent.
+5. The response is sent back to the frontend and displayed in the chat.
+
+## Installation
+
+1. Clone the repository:
+```
+git clone https://github.com/yourusername/quantum-quest.git
+cd quantum-quest
+```
+
+2. Create a virtual environment:
+```
+python -m venv venv
+venv\Scripts\activate
+```
+
+3. Install required packages:
+```
+pip install -r requirements.txt
+```
+
+4. Install spaCy English model:
+```
+python -m spacy download en_core_web_sm
+```
+
+5. Set up MongoDB:
+- Install MongoDB locally or sign up for a free MongoDB Atlas account.
+- Update the `MONGODB_URI` in the `.env` file with your connection string.
+
+6. Populate the database with sample questions:
+python populate_db.py
+
+## Usage
+
+1. Start the Flask application:
+python app.py
+
+2. Open a web browser and navigate to `http://localhost:5000`.
+
+3. Start interacting with Quantum Quest by typing messages in the chat interface.
+
+## Dataset
+
+The initial dataset of questions is created manually and stored in the `populate_db.py` file. This script populates the MongoDB database with a set of sample questions covering various scientific topics.
+
+To expand the dataset:
+1. Add new questions to the `questions` list in `populate_db.py`.
+2. Run the script to add the new questions to the database.
+
+For a production environment, consider:
+- Partnering with educational institutions or science experts to create a more comprehensive question bank.
+- Implementing a content management system for easy addition and modification of questions.
+- Integrating with external APIs or databases to dynamically fetch current scientific information and create questions.
+
+## Hosting
+
+To host Quantum Quest, you can use PythonAnywhere, a platform that offers free Python hosting:
+
+1. Sign up for a free account at www.pythonanywhere.com
+
+2. Set up your web app:
+- Go to the "Web" tab and create a new web app.
+- Choose "Flask" as your web framework.
+- Select Python 3.8 as your Python version.
+
+3. Set up your virtual environment:
+mkvirtualenv --python=/usr/bin/python3.8 myenv
+pip install -r requirements.txt
+
+4. Upload your project files to PythonAnywhere.
+
+5. Modify the WSGI configuration file:
+- Navigate to the WSGI configuration file in the Web tab.
+- Update it to point to your `app.py` file.
+
+6. Set up environment variables:
+- In the "Web" tab, find the "Environment variables" section.
+- Add your MongoDB connection string and other necessary variables.
+
+7. Database hosting:
+- Sign up for a free MongoDB Atlas account.
+- Create a new cluster and obtain the connection string.
+- Update your environment variables with the new connection string.
+- Whitelist PythonAnywhere's IP addresses in your MongoDB Atlas settings.
+
+8. Install the spaCy English model:
+python -m spacy download en_core_web_sm
+
+9. Reload your web app on PythonAnywhere.
+
+Your Quantum Quest app should now be live and accessible via the URL provided by PythonAnywhere.
+
+## Contributing
+
+Contributions to Quantum Quest are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.`, the questions should not be hard coded, make it dynamic, maybe from a dataset, make this bot work as expected, MAKE SURE THE RECORD AUDIO IS WORKING WHERE I CAN ASK A QUESTION VIA THE MICROPHONE AND THE BOT GENERATES THE RESPONSE AS WELL AS SPEAKING IT IN AUDIO, THE VOICE SHOULD BE A FUTURISTIC TECH WOMAN WHO IS FUNNY AND LOVELY WITH A SWEET SOFT VOICE AND SPEAKING SPEED SHOULD BE RELATIVELY USER FRIENDLY

@@ -23,8 +23,7 @@ def populate_questions():
             "question_text": "What is the Heisenberg Uncertainty Principle?",
             "correct_answer": "It is impossible to simultaneously measure both the position and momentum of a particle with absolute precision",
             "explanation": "This principle is fundamental to quantum mechanics and sets limits on the precision of certain pairs of physical properties of a particle."
-        },
-        # Add more questions here
+        }
     ]
 
     for q in questions:

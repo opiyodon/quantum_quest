@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function submitForm(form, button) {
         const formData = new FormData(form);
 
-        fetch(action, {
+        fetch(form.action, {
             method: 'POST',
             body: formData
         })
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.status === 'success') {
                 form.reset();
-                window.location.href = data.redirect || 'index.html';
+                showNotification('success', 'Profile updated successfully.');
             } else {
                 showNotification('error', data.message);
             }
@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
             notificationContainer.removeChild(notification);
         });
 
-        const duration = 5000; // 5 seconds
+        const duration = 5000;
         progressBar.style.transition = `width ${duration}ms linear`;
         setTimeout(() => {
             progressBar.style.width = '100%';

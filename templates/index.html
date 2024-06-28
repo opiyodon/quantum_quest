@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quantum Quest</title>
-    <link rel="stylesheet" href="../static/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -16,15 +16,20 @@
                 </div>
                 <h1>Quantum Quest</h1>
             </div>
-            <button id="close-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256">
-                    <path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path>
-                </svg>
-            </button>
+            <div class="profile-dropdown">
+                <img src="{{ user.profile_picture }}" alt="Profile" id="profile-img">
+                <div class="dropdown-content">
+                    <a href="#" id="profile-link">Profile</a>
+                    <a href="{{ url_for('logout') }}">Logout</a>
+                </div>
+            </div>
         </header>
+        <div id="chat-sidebar">
+            <h3>Chat History</h3>
+            <ul id="chat-history-list"></ul>
+            <button id="clear-history">Clear All Chats</button>
+        </div>
         <div id="chat-content">
-            <h2>Welcome to Quantum Quest!</h2>
-            <p>I'm your guide to the cosmos. Ask me anything!</p>
             <div id="chat-messages"></div>
         </div>
         <div id="input-container">
@@ -35,9 +40,27 @@
                 </svg>
             </button>
             <button id="send-btn">Send</button>
-        </div>        
+        </div>
     </div>
+
+    <div id="profile-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Update Profile</h2>
+            <form id="profile-form">
+                <input type="text" name="username" placeholder="New Username">
+                <input type="password" name="password" placeholder="New Password">
+                <input type="file" name="profile_picture" accept="image/*">
+                <button type="submit">Update</button>
+            </form>
+            <div class="danger-zone">
+                <h3>Danger Zone</h3>
+                <button id="delete-account">Delete Account</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script src="../static/script.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
