@@ -341,8 +341,7 @@ a {
 
 a:hover {
     text-decoration: underline;
-}
-
+}/* Styles for the notification pop-ups */
 #notification-container {
     position: absolute;
     top: 20px;
@@ -394,6 +393,59 @@ a:hover {
     height: 100%;
     width: 0;
     transition: width linear;
+}
+
+/* Styles for the confirmation pop-ups */
+.confirmation {
+    background: rgba(27, 43, 56, 0.9);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+    position: relative;
+}
+
+.confirmation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.confirmation-close {
+    background: none;
+    border: none;
+    color: #61dafb;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0;
+}
+
+.confirmation-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+}
+
+.confirmation-actions button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.confirm-yes {
+    background: #61dafb;
+    color: white;
+}
+
+.confirm-no {
+    background: #ff4c4c;
+    color: white;
 }
 
 .success {

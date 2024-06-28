@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quantum Quest</title>
-    <link rel="stylesheet" href="../static/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
 </head>
+
 <body>
     <div id="chat-container">
         <div id="chat-sidebar">
@@ -18,12 +21,15 @@
             <header>
                 <div class="logo-title">
                     <div class="logo">
-                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6H42L36 24L42 42H6L12 24L6 6Z" fill="currentColor"></path></svg>
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 6H42L36 24L42 42H6L12 24L6 6Z" fill="currentColor"></path>
+                        </svg>
                     </div>
                     <h1>Quantum Quest</h1>
                 </div>
                 <div class="profile-dropdown">
-                    <img src="{{ user.profile_picture }}" alt="Profile" id="profile-img">
+                    <img src="{{ user.profile_picture if user.profile_picture else url_for('static', filename='default_profile.png') }}"
+                        alt="Profile" id="profile-img">
                     <div class="dropdown-content">
                         <a href="#" id="profile-link">Profile</a>
                         <a href="{{ url_for('logout') }}">Logout</a>
@@ -38,8 +44,11 @@
             <div id="input-container">
                 <textarea id="user-input" class="custom-scrollbar" placeholder="Ask me anything"></textarea>
                 <button id="mic-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256">
-                        <path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"></path>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
+                        viewBox="0 0 256 256">
+                        <path
+                            d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V232a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z">
+                        </path>
                     </svg>
                 </button>
                 <button id="send-btn">Send</button>
@@ -51,8 +60,9 @@
         <div class="modal-content">
             <span class="close">&times;</span>
             <h2>Update Profile</h2>
-            <form id="profile-form">
-                <input type="text" name="username" placeholder="New Username">
+            <form id="profile-form" action="{{ url_for('update_profile') }}" method="POST"
+                enctype="multipart/form-data">
+                <input type="text" name="username" placeholder="New Username" value="{{ user.username }}">
                 <input type="password" name="password" placeholder="New Password">
                 <input type="file" name="profile_picture" accept="image/*">
                 <button type="submit">Update</button>
@@ -66,8 +76,9 @@
     <div id="notification-container"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script src="../static/script.js"></script>
-    <script src="../static/validation.js"></script>
-    <script src="../static/page-loader.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('static', filename='validation.js') }}"></script>
+    <script src="{{ url_for('static', filename='page-loader.js') }}"></script>
 </body>
+
 </html>
