@@ -19,11 +19,104 @@ socketio = SocketIO(app)
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 def send_email(to_email, subject, body):
-    msg = MIMEMultipart()
+    msg = MIMEMultipart('alternative')
     msg['From'] = app.config['MAIL_USERNAME']
     msg['To'] = to_email
     msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
+
+    html_body = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Your Password</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap');
+        body {{
+            font-family: 'Space Grotesk', sans-serif;
+            background: black;
+            color: black;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }}
+        .email-container {{
+            background: grey;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            max-width: 600px;
+            padding: 20px;
+            text-align: center;
+        }}
+        .logo-title {{
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }}
+        .logo {{
+            width: 24px;
+            height: 24px;
+            color: black;
+        }}
+        h1 {{
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0;
+            text-align: center;
+        }}
+        p {{
+            font-size: 16px;
+            color: black;
+        }}
+        a {{
+            display: inline-block;
+            background: #61dafb;
+            border: none;
+            border-radius: 10px;
+            color: black;
+            padding: 10px 50px;
+            text-decoration: none;
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: 500;
+        }}
+        .footer {{
+            margin-top: 20px;
+            font-size: 12px;
+            color: #aaaaaa;
+        }}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="logo-title">
+            <div class="logo">
+                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 6H42L36 24L42 42H6L12 24L6 6Z" fill="currentColor"></path>
+                </svg>
+            </div>
+            <h1>Quantum Quest</h1>
+        </div>
+        <h1>Reset Your Password</h1>
+        <p>Hi there,</p>
+        <p>We received a request to reset your password. Click the button below to reset it.</p>
+        <a href="{body}" target="_blank">Reset Password</a>
+        <p>If you didn't request a password reset, please ignore this email or reply to let us know.</p>
+        <p class="footer">This link will expire in 1 hour.</p>
+    </div>
+</body>
+</html>
+"""
+
+    msg.attach(MIMEText(html_body, 'html'))
 
     try:
         with smtplib.SMTP(app.config['MAIL_SERVER'], app.config['MAIL_PORT']) as server:
@@ -71,28 +164,31 @@ def register():
         if existing_user:
             return jsonify({'status': 'error', 'message': 'Email already registered'})
         
+        encoded_string = None
         if 'profile_picture' in request.files:
             profile_picture = request.files['profile_picture']
             if profile_picture.filename != '':
-                filename = secure_filename(profile_picture.filename)
-                profile_picture.save(os.path.join('uploads', filename))
-                
-                with open(os.path.join('uploads', filename), "rb") as image_file:
-                    encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
-            else:
-                encoded_string = None
-        else:
-            encoded_string = None
+                try:
+                    filename = secure_filename(profile_picture.filename)
+                    profile_picture.save(os.path.join('uploads', filename))
+                    
+                    with open(os.path.join('uploads', filename), "rb") as image_file:
+                        encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                except Exception as e:
+                    return jsonify({'status': 'error', 'message': f'Error uploading file: {str(e)}'})
         
-        user = User.insert_one({
-            'username': username,
-            'email': email,
-            'password': password,
-            'profile_picture': encoded_string
-        })
-        
-        session['user_id'] = str(user.inserted_id)
-        return jsonify({'status': 'success', 'redirect': url_for('index')})
+        try:
+            user = User.insert_one({
+                'username': username,
+                'email': email,
+                'password': password,
+                'profile_picture': encoded_string
+            })
+            
+            session['user_id'] = str(user.inserted_id)
+            return jsonify({'status': 'success', 'redirect': url_for('index')})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': f'Error registering user: {str(e)}'})
     return render_template('register.html')
 
 @app.route('/forgot_password', methods=['GET', 'POST'])
@@ -103,8 +199,8 @@ def forgot_password():
         if user:
             token = s.dumps(email, salt='email-confirm')
             link = url_for('reset_password', token=token, _external=True)
-            if send_email(email, 'Reset Your Password', f'Reset password link: {link}'):
-                return jsonify({'status': 'success', 'message': 'Email sent, check your email to reset your password'})
+            if send_email(email, 'Reset Your Password', link):
+                return jsonify({'status': 'success', 'message': 'Email sent, check your inbox to reset your password'})
             else:
                 return jsonify({'status': 'error', 'message': 'Failed to send email'})
         else:
@@ -118,9 +214,13 @@ def reset_password(token):
     except SignatureExpired:
         return '<h1>The token is expired!</h1>'
     if request.method == 'POST':
-        new_password = generate_password_hash(request.form['password'])
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+        if password != confirm_password:
+            return jsonify({'status': 'error', 'message': 'Passwords do not match'})
+        new_password = generate_password_hash(password)
         User.update_one({'email': email}, {'$set': {'password': new_password}})
-        return jsonify({'status': 'success', 'message': 'Password reset successful'})
+        return jsonify({'status': 'success', 'message': 'Password reset successful', 'redirect': url_for('login')})
     return render_template('reset_password.html')
 
 @app.route('/logout')
@@ -163,19 +263,18 @@ def get_question(subject, difficulty):
 
 def check_answer(question_id, answer):
     question = Question.find_one({"_id": ObjectId(question_id)})
-    is_correct = answer.lower() == question['correct_answer'].lower()
-    return is_correct, question['explanation']
+    is_correct = question["correct_answer"] == answer
+    return is_correct, question["explanation"]
 
 def update_user_progress(user_id, subject, is_correct):
     UserProgress.update_one(
         {"user_id": ObjectId(user_id), "subject": subject},
-        {"$inc": {"correct" if is_correct else "incorrect": 1}},
+        {"$inc": {"correct_answers" if is_correct else "incorrect_answers": 1}},
         upsert=True
     )
 
 def get_user_progress(user_id):
-    progress = UserProgress.find({"user_id": ObjectId(user_id)})
-    return list(progress)
+    return list(UserProgress.find({"user_id": ObjectId(user_id)}))
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

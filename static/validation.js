@@ -3,7 +3,13 @@ document.addEventListener('DOMContentLoaded', () => {
     forms.forEach(form => {
         form.addEventListener('submit', function (e) {
             e.preventDefault();
-            validateForm(form);
+            if (form.id === 'reset-password-form') {
+                if (validateResetPasswordForm(form)) {
+                    validateForm(form);
+                }
+            } else {
+                validateForm(form);
+            }
         });
     });
 
@@ -13,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const button = form.querySelector('button');
 
         inputs.forEach(input => {
-            if (!input.value) {
+            if (!input.value && input.type !== 'file') {
                 valid = false;
                 showNotification('error', `Please fill out the ${input.name} field.`);
             }
@@ -26,8 +32,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function validateResetPasswordForm(form) {
+        const newPassword = form.querySelector('input[name="password"]');
+        const confirmPassword = form.querySelector('input[name="confirm_password"]');
+        let valid = true;
+
+        if (newPassword.value !== confirmPassword.value) {
+            valid = false;
+            showNotification('error', 'Passwords do not match.');
+        }
+
+        return valid;
+    }
+
     function submitForm(form, button) {
         const formData = new FormData(form);
+        const action = form.getAttribute('action') || window.location.href;
 
         fetch(action, {
             method: 'POST',
@@ -40,9 +60,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.status === 'success') {
                 form.reset();
-                window.location.href = data.redirect || 'index.html';
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                } else {
+                    showNotification('success', data.message || 'Operation successful');
+                }
             } else {
-                showNotification('error', data.message);
+                showNotification('error', data.message || 'An error occurred');
             }
         })
         .catch(error => {
