@@ -12,6 +12,9 @@
 </head>
 
 <body>
+    <div id="page-loader" class="loader">
+        <div class="spinner"></div>
+    </div>
     <div id="chat-container">
         <div id="chat-sidebar">
             <button id="new-chat-btn">Start New Chat</button>
@@ -32,7 +35,7 @@
                 <div class="profile-dropdown">
                     <img src="{{ url_for('static', filename=user.profile_picture) if user.profile_picture else url_for('static', filename='default_profile.png') }}"  alt="Profile" id="profile-img">
                     <div class="dropdown-content">
-                        <a href="#" id="profile-btn">
+                        <a id="profile-btn">
                             <i class="fas fa-user"></i>
                             <span>Profile</span>
                         </a>
@@ -78,8 +81,11 @@
                 <input class="form-input" type="text" name="username" placeholder="New Username"
                     value="{{ user.username }}">
                 <input class="form-input" type="password" name="password" placeholder="New Password">
-                <input class="form-input" type="file" name="profile_picture" accept="image/*">
-                <button type="submit">Update</button>
+                <input class="form-input custom-file-input" type="file" name="profile_picture" accept="image/*">
+                <button type="submit">
+                    <span class="button-text">Update</span>
+                    <div class="button-loader"></div>
+                </button>
             </form>
             <div class="danger-zone">
                 <h3>Danger Zone</h3>
