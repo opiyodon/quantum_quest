@@ -1,3 +1,4 @@
+import os
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -5,18 +6,26 @@ from werkzeug.utils import secure_filename
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired
 from config import Config
 from database import db
-from models import Question, UserProgress, User
-import os
+from models import Question, UserProgress, User, Chat
 import base64
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from bson import ObjectId
+from pydub import AudioSegment
+import speech_recognition as sr
+import openai
 
 app = Flask(__name__)
 app.config.from_object(Config)
 socketio = SocketIO(app)
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
+# Ensure the 'uploads' directory exists
+if not os.path.exists(os.path.join('static', 'uploads')):
+    os.makedirs(os.path.join('static', 'uploads'))
+
+openai.api_key = app.config['OPENAI_API_KEY']
 
 def send_email(to_email, subject, body):
     msg = MIMEMultipart('alternative')
@@ -162,16 +171,21 @@ def register():
         if existing_user:
             return jsonify({'status': 'error', 'message': 'Email already registered'})
         
-        encoded_string = None
+        profile_picture_path = None
         if 'profile_picture' in request.files:
             profile_picture = request.files['profile_picture']
             if profile_picture.filename != '':
                 try:
                     filename = secure_filename(profile_picture.filename)
-                    profile_picture.save(os.path.join('uploads', filename))
+                    filepath = os.path.join('static/uploads', filename)
                     
-                    with open(os.path.join('uploads', filename), "rb") as image_file:
-                        encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                    # Ensure the 'uploads' directory exists
+                    if not os.path.exists('static/uploads'):
+                        os.makedirs('static/uploads')
+                        
+                    profile_picture.save(filepath)
+                    
+                    profile_picture_path = f'uploads/{filename}'
                 except Exception as e:
                     return jsonify({'status': 'error', 'message': f'Error uploading file: {str(e)}'})
         
@@ -180,7 +194,7 @@ def register():
                 'username': username,
                 'email': email,
                 'password': password,
-                'profile_picture': encoded_string
+                'profile_picture': profile_picture_path
             })
             
             session['user_id'] = str(user.inserted_id)
@@ -249,12 +263,14 @@ def update_profile():
 
     if profile_picture:
         filename = secure_filename(profile_picture.filename)
-        filepath = os.path.join('uploads', filename)
+        filepath = os.path.join('static/uploads', filename)
+        
+        # Ensure the 'uploads' directory exists
+        if not os.path.exists('static/uploads'):
+            os.makedirs('static/uploads')
+        
         profile_picture.save(filepath)
-        with open(filepath, "rb") as image_file:
-            encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
-        update_data['profile_picture'] = encoded_string
-        os.remove(filepath)
+        update_data['profile_picture'] = f'uploads/{filename}'
 
     if update_data:
         User.update_one({'_id': ObjectId(session['user_id'])}, {'$set': update_data})
@@ -270,19 +286,100 @@ def delete_account():
     user_id = ObjectId(session['user_id'])
     User.collection.delete_one({'_id': user_id})
     UserProgress.collection.delete_many({'user_id': str(user_id)})
+    Chat.collection.delete_many({'user_id': str(user_id)})
     session.clear()
     return jsonify({'status': 'success', 'message': 'Account deleted successfully'})
 
-@socketio.on('message')
-def handle_message(message):
-    response_type = generate_response(message['text'])
+@app.route('/chat_history')
+def get_chat_history():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'status': 'error', 'message': 'User not logged in'})
+
+    chats = Chat.find({'user_id': user_id})
+    history = [{'_id': str(chat['_id']), 'user_message': chat['messages'][0]['content']} for chat in chats]
+    return jsonify({'status': 'success', 'history': history})
+
+@app.route('/load_chat/<chat_id>')
+def load_chat(chat_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'status': 'error', 'message': 'User not logged in'})
+
+    chat = Chat.find_one({'_id': ObjectId(chat_id), 'user_id': user_id})
+    if not chat:
+        return jsonify({'status': 'error', 'message': 'Chat not found'})
+
+    messages = [{'sender': msg['role'], 'content': msg['content']} for msg in chat['messages']]
+    return jsonify({'status': 'success', 'chat': messages})
+
+@app.route('/delete_chat/<chat_id>', methods=['DELETE'])
+def delete_chat(chat_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'status': 'error', 'message': 'User not logged in'})
+
+    result = Chat.delete_one({'_id': ObjectId(chat_id), 'user_id': user_id})
+    if result.deleted_count:
+        return jsonify({'status': 'success', 'message': 'Chat deleted'})
+    else:
+        return jsonify({'status': 'error', 'message': 'Chat not found'})
+
+@app.route('/clear_all_chats', methods=['POST'])
+def clear_all_chats():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'status': 'error', 'message': 'User not logged in'})
+
+    result = Chat.delete_many({'user_id': user_id})
+    return jsonify({'status': 'success', 'message': f'{result.deleted_count} chats deleted'})
+
+@app.route('/transcribe', methods=['POST'])
+def transcribe_audio():
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file provided'}), 400
+
+    audio_file = request.files['audio']
+    audio = AudioSegment.from_file(audio_file)
+    audio.export("temp.wav", format="wav")
+
+    recognizer = sr.Recognizer()
+    with sr.AudioFile("temp.wav") as source:
+        audio_data = recognizer.record(source)
+        try:
+            text = recognizer.recognize_google(audio_data)
+            os.remove("temp.wav")
+            return jsonify({'transcription': text})
+        except sr.UnknownValueError:
+            return jsonify({'error': 'Could not understand audio'}), 400
+        except sr.RequestError:
+            return jsonify({'error': 'Could not request results from speech recognition service'}), 500
+
+@socketio.on('user_message')
+def handle_user_message(data):
+    user_message = data['message']
+    response = generate_response(user_message)
+
+    # Save chat message
+    user_id = session.get('user_id')
+    chat_id = session.get('chat_id')
+    if not chat_id:
+        chat_id = str(ObjectId())
+        Chat.create(user_id, chat_id)
+        session['chat_id'] = chat_id
     
-    if response_type == "start_quiz":
-        question = get_question(message['subject'], message['difficulty'])
-        emit('question', {'id': str(question['_id']), 'text': question['question_text']})
-    elif response_type == "answer_question":
-        is_correct, explanation = check_answer(message['question_id'], message['answer'])
-        emit('answer', {'is_correct': is_correct, 'explanation': explanation})
+    Chat.add_message(chat_id, 'user', user_message)
+    Chat.add_message(chat_id, 'bot', response)
+
+    emit('bot_message', {'message': response})
+
+def generate_response(user_message):
+    response = openai.Completion.create(
+        engine="davinci-codex",
+        prompt=user_message,
+        max_tokens=150
+    )
+    return response.choices[0].text.strip()
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
