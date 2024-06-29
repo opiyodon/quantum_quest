@@ -504,6 +504,25 @@ header h1 {
     }
 }
 
+footer {
+    font-size: 11px;
+    color: #90adcb;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    text-align: center;
+
+}
+
+footer p {
+    margin: 5px 0;
+}
+
+footer p:first-child {
+    color: #61dafb;
+    font-weight: bold;
+}
+
 /* Styles for the notification pop-ups */
 #notification-container {
     position: absolute;
