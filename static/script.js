@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const micBtn = document.getElementById('mic-btn');
     const chatHistoryList = document.getElementById('chat-history-list');
     const clearHistoryBtn = document.getElementById('clear-history');
+    const newChatBtn = document.getElementById('new-chat-btn');
     const notificationContainer = document.getElementById('notification-container');
     const profileImg = document.getElementById('profile-img');
     const profileBtn = document.getElementById('profile-btn');
@@ -302,6 +303,11 @@ document.addEventListener('DOMContentLoaded', function () {
             notificationContainer.removeChild(confirmation);
             onConfirm();
         });
+    }
+
+    newChatBtn.onclick = function() {
+        chatMessages.innerHTML = '';
+        addMessageToChat('Quantum Quest', 'Welcome to a new chat session!', 'bot-message');
     }
 
     // Initialize everything

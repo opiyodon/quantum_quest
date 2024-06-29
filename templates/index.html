@@ -14,6 +14,7 @@
 <body>
     <div id="chat-container">
         <div id="chat-sidebar">
+            <button id="new-chat-btn">Start New Chat</button>
             <h3>Chat History</h3>
             <ul id="chat-history-list"></ul>
             <button id="clear-history">Clear All Chats</button>
@@ -29,8 +30,7 @@
                     <h1>Quantum Quest</h1>
                 </div>
                 <div class="profile-dropdown">
-                    <img src="{{ user.profile_picture if user.profile_picture else url_for('static', filename='default_profile.png') }}"
-                         alt="Profile" id="profile-img">
+                    <img src="{{ url_for('static', filename=user.profile_picture) if user.profile_picture else url_for('static', filename='default_profile.png') }}"  alt="Profile" id="profile-img">
                     <div class="dropdown-content">
                         <a href="#" id="profile-btn">
                             <i class="fas fa-user"></i>
@@ -59,20 +59,24 @@
                     </svg>
                 </button>
                 <button id="send-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256">
-                        <path d="M224.4 32.3c-3.6-3.6-8.9-4.7-13.6-2.9L30.8 118.4c-5.1 2-8.4 6.6-8.7 11.8s2.4 10.1 7.2 12.8l56.3 31.5 31.5 56.3c2.7 4.8 7.7 7.7 13.1 7.5 5.4-.2 10.1-3.4 12.1-8.4l89-180c1.8-4.7.7-10-2.9-13.6zM52.8 126.6L193.5 62 115.1 140.4 52.8 126.6zm76.6 76.6l-13.8-62.3 78.4-78.4L130.2 203.2z"/>
-                      </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
+                        viewBox="0 0 256 256">
+                        <path
+                            d="M224.4 32.3c-3.6-3.6-8.9-4.7-13.6-2.9L30.8 118.4c-5.1 2-8.4 6.6-8.7 11.8s2.4 10.1 7.2 12.8l56.3 31.5 31.5 56.3c2.7 4.8 7.7 7.7 13.1 7.5 5.4-.2 10.1-3.4 12.1-8.4l89-180c1.8-4.7.7-10-2.9-13.6zM52.8 126.6L193.5 62 115.1 140.4 52.8 126.6zm76.6 76.6l-13.8-62.3 78.4-78.4L130.2 203.2z" />
+                    </svg>
                 </button>
             </div>
         </div>
     </div>
-    
+
     <div id="profile-modal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
             <h2>Update Profile</h2>
-            <form id="profile-form" action="{{ url_for('update_profile') }}" method="POST" enctype="multipart/form-data">
-                <input class="form-input" type="text" name="username" placeholder="New Username" value="{{ user.username }}">
+            <form id="profile-form" action="{{ url_for('update_profile') }}" method="POST"
+                enctype="multipart/form-data">
+                <input class="form-input" type="text" name="username" placeholder="New Username"
+                    value="{{ user.username }}">
                 <input class="form-input" type="password" name="password" placeholder="New Password">
                 <input class="form-input" type="file" name="profile_picture" accept="image/*">
                 <button type="submit">Update</button>

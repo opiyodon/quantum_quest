@@ -1,4 +1,5 @@
 from database import db
+from bson import ObjectId
 
 class Question:
     collection = db.questions
@@ -60,7 +61,45 @@ class User:
     @staticmethod
     def update_one(query, update):
         return User.collection.update_one(query, update)
-    
+
     @staticmethod
     def insert_one(data):
         return User.collection.insert_one(data)
+
+    @staticmethod
+    def delete_one(query):
+        return User.collection.delete_one(query)
+
+class Chat:
+    collection = db.chats
+
+    @staticmethod
+    def create(user_id, chat_id):
+        return Chat.collection.insert_one({
+            "_id": ObjectId(chat_id),
+            "user_id": user_id,
+            "messages": []
+        })
+
+    @staticmethod
+    def add_message(chat_id, role, content):
+        return Chat.collection.update_one(
+            {"_id": ObjectId(chat_id)},
+            {"$push": {"messages": {"role": role, "content": content}}}
+        )
+
+    @staticmethod
+    def find(query):
+        return Chat.collection.find(query)
+
+    @staticmethod
+    def find_one(query):
+        return Chat.collection.find_one(query)
+
+    @staticmethod
+    def delete_one(query):
+        return Chat.collection.delete_one(query)
+
+    @staticmethod
+    def delete_many(query):
+        return Chat.collection.delete_many(query)
