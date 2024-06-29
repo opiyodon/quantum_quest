@@ -101,21 +101,21 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(error => console.error('Error:', error));
     }
 
-    profileImg.onclick = function(event) {
+    profileImg.onclick = function (event) {
         event.stopPropagation();
         const dropdownContent = document.querySelector('.dropdown-content');
         dropdownContent.style.display = dropdownContent.style.display === 'block' ? 'none' : 'block';
     }
 
-    profileBtn.onclick = function() {
+    profileBtn.onclick = function () {
         profileModal.style.display = "block";
     }
 
-    closeModal.onclick = function() {
+    closeModal.onclick = function () {
         profileModal.style.display = "none";
     }
 
-    window.onclick = function(event) {
+    window.onclick = function (event) {
         if (event.target == profileModal) {
             profileModal.style.display = "none";
         }
@@ -142,15 +142,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(data => {
                     if (data.status === 'success') {
                         showNotification('success', data.message);
-                        // Update the profile picture if it was changed
-                        const fileInput = profileForm.querySelector('input[type="file"]');
-                        if (fileInput.files.length > 0) {
-                            const reader = new FileReader();
-                            reader.onload = function (e) {
-                                document.getElementById('profile-img').src = e.target.result;
-                            };
-                            reader.readAsDataURL(fileInput.files[0]);
-                        }
+                        // Refresh the page after a short delay
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500); // 1.5 seconds delay to allow the user to see the success message
                     } else {
                         showNotification('error', data.message);
                     }
@@ -224,8 +219,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        chatHistoryList.innerHTML = '';
                         showNotification('success', 'Chat history cleared');
+                        // Refresh the page after a short delay
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500); // 1.5 seconds delay to allow the user to see the success message
                     } else {
                         showNotification('error', data.message);
                     }
@@ -305,10 +303,27 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    newChatBtn.onclick = function() {
-        chatMessages.innerHTML = '';
-        addMessageToChat('Quantum Quest', 'Welcome to a new chat session!', 'bot-message');
-    }
+    newChatBtn.onclick = function () {
+        fetch('/start_new_chat', {
+            method: 'POST'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showNotification('success', 'Starting a new chat...');
+                    // Refresh the page after a short delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000); // 1 second delay to allow the user to see the notification
+                } else {
+                    showNotification('error', data.message || 'Failed to start a new chat');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('error', 'An error occurred while starting a new chat');
+            });
+    };
 
     // Initialize everything
     setupProfileForm();
