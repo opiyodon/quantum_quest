@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const closeModal = document.getElementsByClassName('close')[0];
     const profileForm = document.getElementById('profile-form');
     const deleteAccountBtn = document.getElementById('delete-account');
+    const inputForm = document.getElementById('input-container');
 
     let isRecording = false;
     let mediaRecorder;
@@ -22,8 +23,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const minHeight = 30;
     const maxHeight = 200;
 
-    function sendMessage(event) {
-        event.preventDefault();
+    function sendMessage() {
         const message = userInput.value.trim();
         if (message) {
             addMessageToChat('You', message, 'user-message');
@@ -31,6 +31,12 @@ document.addEventListener('DOMContentLoaded', function () {
             userInput.value = '';
             userInput.style.height = 'auto';
             userInput.style.minHeight = minHeight + 'px';
+    
+            // Hide welcome message
+            const welcomeMessage = document.getElementById('welcome-message');
+            if (welcomeMessage) {
+                welcomeMessage.style.display = 'none';
+            }
         }
     }
 
@@ -48,6 +54,12 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
         chatMessages.appendChild(messageElement);
         chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Hide welcome message
+        const welcomeMessage = document.getElementById('welcome-message');
+        if (welcomeMessage) {
+            welcomeMessage.style.display = 'none';
+        }
     }
 
     userInput.addEventListener('input', function () {
@@ -69,30 +81,24 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    sendBtn.addEventListener('click', sendMessage);
+    inputForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        sendMessage();
+    });
 
     userInput.addEventListener('keypress', function (e) {
         if (e.key === 'Enter' && !e.shiftKey) {
-            sendMessage(e);
+            e.preventDefault();
+            sendMessage();
         }
     });
 
+    socket.on('connect', function () {
+        console.log('Connected to server');
+    });
+
     socket.on('bot_message', function (data) {
-        const messageElement = document.createElement('div');
-        messageElement.className = 'message bot-message';
-        const profilePic = '/static/chatbot_avatar.png';
-        messageElement.innerHTML = `
-            <img src="${profilePic}" alt="Quantum Quest" class="chat-avatar">
-            <div class="message-content">
-                <div class="sender">Quantum Quest</div>
-                <div class="message-text"></div>
-                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
-            </div>
-        `;
-        chatMessages.appendChild(messageElement);
-        const messageText = messageElement.querySelector('.message-text');
-        typeWriterEffect(messageText, marked.parse(data.message));
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        addMessageToChat('Quantum Quest', data.message, 'bot-message');
     });
 
     micBtn.addEventListener('click', toggleRecording);
@@ -115,6 +121,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 mediaRecorder.addEventListener("stop", () => {
                     const audioBlob = new Blob(audioChunks);
                     sendAudioToServer(audioBlob);
+
+                    // Hide welcome message
+                    const welcomeMessage = document.getElementById('welcome-message');
+                    if (welcomeMessage) {
+                        welcomeMessage.style.display = 'none';
+                    }
                 });
 
             } catch (err) {
@@ -131,23 +143,25 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function sendAudioToServer(audioBlob) {
         const formData = new FormData();
-        formData.append("audio", audioBlob);
-
+        formData.append("audio", audioBlob, "audio.wav");
+    
         fetch('/transcribe', {
             method: 'POST',
             body: formData
         })
-            .then(response => response.json())
-            .then(data => {
-                if (data.transcription) {
-                    addMessageToChat('You', `🎤 ${data.transcription}`, 'user-message');
-                    socket.emit('user_message', { message: data.transcription });
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('error', 'Error processing audio');
-            });
+        .then(response => response.json())
+        .then(data => {
+            if (data.transcription) {
+                addMessageToChat('You', `🎤 ${data.transcription}`, 'user-message');
+                socket.emit('user_message', { message: data.transcription });
+            } else if (data.error) {
+                showNotification('error', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('error', 'Error processing audio');
+        });
     }
 
     profileImg.onclick = function (event) {
@@ -243,8 +257,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         chatHistoryList.appendChild(li);
                     });
                     if (data.history.length > 0) {
-                        document.querySelector('#chat-content > h2').style.display = 'none';
-                        document.querySelector('#chat-content > p').style.display = 'none';
+                        document.getElementById('welcome-message').style.display = 'none';
+                    } else {
+                        document.getElementById('welcome-message').style.display = 'block';
                     }
                 }
             })
@@ -260,8 +275,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     data.chat.forEach(message => {
                         addMessageToChat(message.sender, message.content, message.sender === 'You' ? 'user-message' : 'bot-message');
                     });
-                    document.querySelector('#chat-content > h2').style.display = 'none';
-                    document.querySelector('#chat-content > p').style.display = 'none';
+                    document.getElementById('welcome-message').style.display = 'none';
                 }
             })
             .catch(error => console.error('Error:', error));
@@ -269,7 +283,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     clearHistoryBtn.onclick = function () {
         showConfirmation('Are you sure you want to clear all chat history?', function () {
-            fetch('/clear_all_chats')
+            fetch('/clear_all_chats', {
+                method: 'POST'
+            })
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
@@ -365,7 +381,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (data.status === 'success') {
                     showNotification('success', 'Starting a new chat...');
                     setTimeout(() => {
-                        window.location.reload();
+                        chatMessages.innerHTML = '';
+                        document.getElementById('welcome-message').style.display = 'block';
+                        loadChatHistory();
                     }, 1000);
                 } else {
                     showNotification('error', data.message || 'Failed to start a new chat');
@@ -376,8 +394,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 showNotification('error', 'An error occurred while starting a new chat');
             });
     };
-
-    document.getElementById('input-container').addEventListener('submit', sendMessage);
 
     // Initialize everything
     setupProfileForm();

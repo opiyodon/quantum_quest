@@ -1,3 +1,4 @@
+import tempfile
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_socketio import SocketIO, emit
@@ -14,18 +15,18 @@ from email.mime.multipart import MIMEMultipart
 from bson import ObjectId
 from pydub import AudioSegment
 import speech_recognition as sr
-import openai
+from openai import OpenAI, ChatCompletion, RateLimitError
 
 app = Flask(__name__)
 app.config.from_object(Config)
 socketio = SocketIO(app)
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
+client = OpenAI(api_key=app.config['OPENAI_API_KEY'])
+
 # Ensure the 'uploads' directory exists
 if not os.path.exists(os.path.join('static', 'uploads')):
     os.makedirs(os.path.join('static', 'uploads'))
-
-openai.api_key = app.config['OPENAI_API_KEY']
 
 def send_email(to_email, subject, body):
     msg = MIMEMultipart('alternative')
@@ -346,27 +347,6 @@ def clear_all_chats():
     result = Chat.delete_many({'user_id': user_id})
     return jsonify({'status': 'success', 'message': f'{result.deleted_count} chats deleted'})
 
-@app.route('/transcribe', methods=['POST'])
-def transcribe_audio():
-    if 'audio' not in request.files:
-        return jsonify({'error': 'No audio file provided'}), 400
-
-    audio_file = request.files['audio']
-    audio = AudioSegment.from_file(audio_file)
-    audio.export("temp.wav", format="wav")
-
-    recognizer = sr.Recognizer()
-    with sr.AudioFile("temp.wav") as source:
-        audio_data = recognizer.record(source)
-        try:
-            text = recognizer.recognize_google(audio_data)
-            os.remove("temp.wav")
-            return jsonify({'transcription': text})
-        except sr.UnknownValueError:
-            return jsonify({'error': 'Could not understand audio'}), 400
-        except sr.RequestError:
-            return jsonify({'error': 'Could not request results from speech recognition service'}), 500
-
 @socketio.on('user_message')
 def handle_user_message(data):
     user_message = data['message']
@@ -386,12 +366,61 @@ def handle_user_message(data):
     emit('bot_message', {'message': response})
 
 def generate_response(user_message):
-    response = openai.Completion.create(
-        engine="davinci-codex",
-        prompt=user_message,
-        max_tokens=150
-    )
-    return response.choices[0].text.strip()
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": user_message}
+            ]
+        )
+        return response.choices[0].message.content.strip()
+    except RateLimitError:
+        return "I'm sorry, but I've reached my question limit for now. Please try again later."
+    except Exception as e:
+        print(f"Error generating response: {str(e)}")
+        return "I'm sorry, I encountered an error while processing your request."
+
+@app.route('/transcribe', methods=['POST'])
+def transcribe_audio():
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file provided'}), 400
+
+    audio_file = request.files['audio']
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_audio:
+        audio_file.save(temp_audio.name)
+        try:
+            # Try to load the audio file
+            audio = AudioSegment.from_file(temp_audio.name)
+            # Export as WAV
+            audio.export(temp_audio.name, format="wav")
+
+            recognizer = sr.Recognizer()
+            with sr.AudioFile(temp_audio.name) as source:
+                audio_data = recognizer.record(source)
+                try:
+                    text = recognizer.recognize_google(audio_data)
+                    return jsonify({'transcription': text})
+                except sr.UnknownValueError:
+                    return jsonify({'error': 'Could not understand audio'}), 400
+                except sr.RequestError:
+                    return jsonify({'error': 'Could not request results from speech recognition service'}), 500
+        except Exception as e:
+            return jsonify({'error': f'Error processing audio: {str(e)}'}), 500
+        finally:
+            os.unlink(temp_audio.name)
+
+@app.route('/start_new_chat', methods=['POST'])
+def start_new_chat():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'status': 'error', 'message': 'User not logged in'})
+
+    chat_id = str(ObjectId())
+    Chat.create(user_id, chat_id)
+    session['chat_id'] = chat_id
+
+    return jsonify({'status': 'success', 'message': 'New chat started'})
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
