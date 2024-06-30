@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
+    const authForms = document.querySelectorAll('.auth-form');
+    authForms.forEach(form => {
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             if (form.id === 'reset-password-form') {

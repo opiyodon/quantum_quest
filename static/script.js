@@ -19,37 +19,80 @@ document.addEventListener('DOMContentLoaded', function () {
     let isRecording = false;
     let mediaRecorder;
 
-    function sendMessage() {
+    const minHeight = 30;
+    const maxHeight = 200;
+
+    function sendMessage(event) {
+        event.preventDefault();
         const message = userInput.value.trim();
         if (message) {
             addMessageToChat('You', message, 'user-message');
             socket.emit('user_message', { message: message });
             userInput.value = '';
+            userInput.style.height = 'auto';
+            userInput.style.minHeight = minHeight + 'px';
         }
     }
 
     function addMessageToChat(sender, message, className) {
         const messageElement = document.createElement('div');
         messageElement.className = `message ${className}`;
+        const profilePic = sender === 'You' ? profileImg.src : '/static/chatbot_avatar.png';
         messageElement.innerHTML = `
-            <div class="sender">${sender}</div>
-            <div class="message-content">${marked.parse(message)}</div>
-            <div class="timestamp">${new Date().toLocaleTimeString()}</div>
+            <img src="${profilePic}" alt="${sender}" class="chat-avatar">
+            <div class="message-content">
+                <div class="sender">${sender}</div>
+                <div class="message-text">${marked.parse(message)}</div>
+                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
+            </div>
         `;
         chatMessages.appendChild(messageElement);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
+    userInput.addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.minHeight = minHeight + 'px';
+        this.style.height = Math.min(this.scrollHeight, maxHeight) + 'px';
+        if (this.scrollHeight > maxHeight) {
+            this.style.overflowY = 'scroll';
+        } else {
+            this.style.overflowY = 'hidden';
+        }
+    });
+
+    function typeWriterEffect(element, text, index = 0) {
+        if (index < text.length) {
+            element.innerHTML += text.charAt(index);
+            index++;
+            setTimeout(() => typeWriterEffect(element, text, index), 20);
+        }
+    }
+
     sendBtn.addEventListener('click', sendMessage);
-    userInput.addEventListener('keypress', function (event) {
-        if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
-            sendMessage();
+
+    userInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            sendMessage(e);
         }
     });
 
     socket.on('bot_message', function (data) {
-        addMessageToChat('Quantum Quest', data.message, 'bot-message');
+        const messageElement = document.createElement('div');
+        messageElement.className = 'message bot-message';
+        const profilePic = '/static/chatbot_avatar.png';
+        messageElement.innerHTML = `
+            <img src="${profilePic}" alt="Quantum Quest" class="chat-avatar">
+            <div class="message-content">
+                <div class="sender">Quantum Quest</div>
+                <div class="message-text"></div>
+                <div class="timestamp">${new Date().toLocaleTimeString()}</div>
+            </div>
+        `;
+        chatMessages.appendChild(messageElement);
+        const messageText = messageElement.querySelector('.message-text');
+        typeWriterEffect(messageText, marked.parse(data.message));
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     });
 
     micBtn.addEventListener('click', toggleRecording);
@@ -62,6 +105,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 mediaRecorder.start();
                 isRecording = true;
                 micBtn.classList.add('recording');
+                showNotification('info', 'Recording started');
 
                 const audioChunks = [];
                 mediaRecorder.addEventListener("dataavailable", event => {
@@ -75,11 +119,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
             } catch (err) {
                 console.error('Error accessing microphone:', err);
+                showNotification('error', 'Error accessing microphone');
             }
         } else {
             mediaRecorder.stop();
             isRecording = false;
             micBtn.classList.remove('recording');
+            showNotification('info', 'Recording stopped, processing audio...');
         }
     }
 
@@ -94,11 +140,14 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(response => response.json())
             .then(data => {
                 if (data.transcription) {
-                    userInput.value = data.transcription;
-                    sendMessage();
+                    addMessageToChat('You', `🎤 ${data.transcription}`, 'user-message');
+                    socket.emit('user_message', { message: data.transcription });
                 }
             })
-            .catch(error => console.error('Error:', error));
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('error', 'Error processing audio');
+            });
     }
 
     profileImg.onclick = function (event) {
@@ -142,10 +191,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(data => {
                     if (data.status === 'success') {
                         showNotification('success', data.message);
-                        // Refresh the page after a short delay
                         setTimeout(() => {
                             window.location.reload();
-                        }, 1500); // 1.5 seconds delay to allow the user to see the success message
+                        }, 1500);
                     } else {
                         showNotification('error', data.message);
                     }
@@ -194,6 +242,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         li.onclick = () => loadChat(chat._id);
                         chatHistoryList.appendChild(li);
                     });
+                    if (data.history.length > 0) {
+                        document.querySelector('#chat-content > h2').style.display = 'none';
+                        document.querySelector('#chat-content > p').style.display = 'none';
+                    }
                 }
             })
             .catch(error => console.error('Error:', error));
@@ -208,6 +260,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     data.chat.forEach(message => {
                         addMessageToChat(message.sender, message.content, message.sender === 'You' ? 'user-message' : 'bot-message');
                     });
+                    document.querySelector('#chat-content > h2').style.display = 'none';
+                    document.querySelector('#chat-content > p').style.display = 'none';
                 }
             })
             .catch(error => console.error('Error:', error));
@@ -220,10 +274,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(data => {
                     if (data.status === 'success') {
                         showNotification('success', 'Chat history cleared');
-                        // Refresh the page after a short delay
                         setTimeout(() => {
                             window.location.reload();
-                        }, 1500); // 1.5 seconds delay to allow the user to see the success message
+                        }, 1500);
                     } else {
                         showNotification('error', data.message);
                     }
@@ -240,7 +293,7 @@ document.addEventListener('DOMContentLoaded', function () {
         notification.className = `notification ${type}`;
         const notificationContent = `
             <div class="notification-header">
-                <span>${type === 'success' ? 'Success' : 'Error'}</span>
+                <span>${type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info'}</span>
                 <button class="notification-close">&times;</button>
             </div>
             <p>${message}</p>
@@ -258,7 +311,7 @@ document.addEventListener('DOMContentLoaded', function () {
             notificationContainer.removeChild(notification);
         });
 
-        const duration = 5000; // 5 seconds
+        const duration = 5000;
         progressBar.style.transition = `width ${duration}ms linear`;
         setTimeout(() => {
             progressBar.style.width = '100%';
@@ -311,10 +364,9 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 if (data.status === 'success') {
                     showNotification('success', 'Starting a new chat...');
-                    // Refresh the page after a short delay
                     setTimeout(() => {
                         window.location.reload();
-                    }, 1000); // 1 second delay to allow the user to see the notification
+                    }, 1000);
                 } else {
                     showNotification('error', data.message || 'Failed to start a new chat');
                 }
@@ -324,6 +376,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 showNotification('error', 'An error occurred while starting a new chat');
             });
     };
+
+    document.getElementById('input-container').addEventListener('submit', sendMessage);
 
     // Initialize everything
     setupProfileForm();

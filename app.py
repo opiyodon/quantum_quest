@@ -240,6 +240,9 @@ def logout():
     session.pop('user_id', None)
     return redirect(url_for('login'))
 
+import os
+from werkzeug.utils import secure_filename
+
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
     if 'user_id' not in session:
@@ -265,9 +268,11 @@ def update_profile():
         filename = secure_filename(profile_picture.filename)
         filepath = os.path.join('static/uploads', filename)
         
-        # Ensure the 'uploads' directory exists
-        if not os.path.exists('static/uploads'):
-            os.makedirs('static/uploads')
+        # Delete old profile picture if it exists
+        if user.get('profile_picture'):
+            old_filepath = os.path.join('static', user['profile_picture'])
+            if os.path.exists(old_filepath):
+                os.remove(old_filepath)
         
         profile_picture.save(filepath)
         update_data['profile_picture'] = f'uploads/{filename}'
@@ -284,9 +289,16 @@ def delete_account():
         return jsonify({'status': 'error', 'message': 'User not logged in'})
 
     user_id = ObjectId(session['user_id'])
-    User.collection.delete_one({'_id': user_id})
-    UserProgress.collection.delete_many({'user_id': str(user_id)})
-    Chat.collection.delete_many({'user_id': str(user_id)})
+    user = User.find_one({'_id': user_id})
+    
+    if user and user.get('profile_picture'):
+        filepath = os.path.join('static', user['profile_picture'])
+        if os.path.exists(filepath):
+            os.remove(filepath)
+
+    User.delete_one({'_id': user_id})
+    UserProgress.delete_many({'user_id': str(user_id)})
+    Chat.delete_many({'user_id': str(user_id)})
     session.clear()
     return jsonify({'status': 'success', 'message': 'Account deleted successfully'})
 

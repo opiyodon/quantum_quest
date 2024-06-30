@@ -26,7 +26,7 @@ h2 {
     margin-bottom: 20px;
 }
 
-form {
+.auth-form {
     display: flex;
     flex-direction: column;
 }
@@ -412,6 +412,47 @@ header h1 {
     color: #90adcb;
     margin-bottom: 4px;
 }
+/* 
+
+ */
+.message {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 15px;
+}
+
+.chat-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.message-content {
+    flex: 1;
+}
+
+.message-text {
+    background-color: #223649;
+    border-radius: 10px;
+    padding: 10px;
+    margin-top: 5px;
+}
+
+.message-text img, .message-text video, .message-text audio {
+    max-width: 100%;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+
+.message-text a {
+    color: #61dafb;
+    text-decoration: none;
+}
+
+.message-text a:hover {
+    text-decoration: underline;
+}
 
 #input-container {
     display: flex;
@@ -431,9 +472,9 @@ header h1 {
     box-shadow: 0 0 20px rgba(97, 218, 251, 0.2);
     color: white;
     font-size: 16px;
-    max-height: 150px;
+    max-height: 200px;
+    overflow-y: auto;
     resize: none;
-    overflow-y: hidden;
 }
 
 #user-input::placeholder {
@@ -526,7 +567,7 @@ footer p:first-child {
 /* Styles for the notification pop-ups */
 #notification-container {
     position: absolute;
-    top: 20px;
+    top: 100px;
     right: 20px;
     z-index: 1000;
 }
@@ -537,12 +578,13 @@ footer p:first-child {
     border-radius: 5px;
     margin-bottom: 10px;
     border: 1px solid #223649;
-    ;
     box-shadow: 0 0 40px rgba(97, 218, 251, 0.2);
     display: flex;
     flex-direction: column;
     width: 300px;
     position: relative;
+    background: transparent;
+    backdrop-filter: blur(30px);
 }
 
 .notification-header {
@@ -594,6 +636,8 @@ footer p:first-child {
     flex-direction: column;
     width: 300px;
     position: relative;
+    background: transparent;
+    backdrop-filter: blur(30px);
 }
 
 .confirmation-header {
