@@ -1,5 +1,8 @@
 import tempfile
 import os
+import json
+import random
+import numpy as np
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -15,18 +18,38 @@ from email.mime.multipart import MIMEMultipart
 from bson import ObjectId
 from pydub import AudioSegment
 import speech_recognition as sr
-from openai import OpenAI, ChatCompletion, RateLimitError
+from tensorflow.keras.models import load_model
+import pyttsx3
+import nltk
+from nltk.stem import WordNetLemmatizer
+import requests
+
+nltk.download('punkt')
+nltk.download('wordnet')
+
+lemmatizer = WordNetLemmatizer()
 
 app = Flask(__name__)
 app.config.from_object(Config)
 socketio = SocketIO(app)
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
-client = OpenAI(api_key=app.config['OPENAI_API_KEY'])
+# Hugging Face API settings
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-3B"
+HUGGINGFACE_API_TOKEN = app.config['HUGGINGFACE_API_TOKEN']
 
 # Ensure the 'uploads' directory exists
 if not os.path.exists(os.path.join('static', 'uploads')):
     os.makedirs(os.path.join('static', 'uploads'))
+
+# Load the trained model
+model = load_model('chatbot_model.keras')
+words = np.load('words.npy', allow_pickle=True)
+classes = np.load('classes.npy', allow_pickle=True)
+
+# Load intents
+with open('intents.json') as file:
+    intents = json.load(file)
 
 def send_email(to_email, subject, body):
     msg = MIMEMultipart('alternative')
@@ -241,9 +264,6 @@ def logout():
     session.pop('user_id', None)
     return redirect(url_for('login'))
 
-import os
-from werkzeug.utils import secure_filename
-
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
     if 'user_id' not in session:
@@ -310,7 +330,10 @@ def get_chat_history():
         return jsonify({'status': 'error', 'message': 'User not logged in'})
 
     chats = Chat.find({'user_id': user_id})
-    history = [{'_id': str(chat['_id']), 'user_message': chat['messages'][0]['content']} for chat in chats]
+    history = []
+    for chat in chats:
+        if chat['messages']:  # Check if 'messages' is not empty
+            history.append({'_id': str(chat['_id']), 'user_message': chat['messages'][0]['content']})
     return jsonify({'status': 'success', 'history': history})
 
 @app.route('/load_chat/<chat_id>')
@@ -366,20 +389,43 @@ def handle_user_message(data):
     emit('bot_message', {'message': response})
 
 def generate_response(user_message):
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": user_message}
-            ]
-        )
-        return response.choices[0].message.content.strip()
-    except RateLimitError:
-        return "I'm sorry, but I've reached my question limit for now. Please try again later."
-    except Exception as e:
-        print(f"Error generating response: {str(e)}")
-        return "I'm sorry, I encountered an error while processing your request."
+    # First, use your trained model to get a response
+    ints = predict_class(user_message, model, words, classes)
+    local_response = get_response(ints, intents)
+    
+    # Check if the local model provided a meaningful response
+    if local_response != "I didn't understand that. Can you please rephrase?":
+        context = f"Context from local model: {local_response}\n\nUser question: {user_message}"
+        try:
+            # Use Hugging Face API to enhance the response
+            headers = {"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}
+            payload = {
+                "inputs": {
+                    "text": context
+                }
+            }
+            response = requests.post(HUGGINGFACE_API_URL, headers=headers, json=payload)
+            response.raise_for_status()
+            enhanced_response = response.json()['generated_text']
+            return f"{local_response}\n\nAdditional information: {enhanced_response}"
+        except Exception as e:
+            print(f"Error using Hugging Face API: {str(e)}")
+            return local_response  # Fallback to local response if API fails
+    else:
+        # If local model doesn't understand, try Hugging Face API
+        try:
+            headers = {"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}
+            payload = {
+                "inputs": {
+                    "text": user_message
+                }
+            }
+            response = requests.post(HUGGINGFACE_API_URL, headers=headers, json=payload)
+            response.raise_for_status()
+            return response.json()['generated_text']
+        except Exception as e:
+            print(f"Error using Hugging Face API: {str(e)}")
+            return "I'm having trouble understanding. Could you please rephrase your question?"
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe_audio():
@@ -400,7 +446,11 @@ def transcribe_audio():
                 audio_data = recognizer.record(source)
                 try:
                     text = recognizer.recognize_google(audio_data)
-                    return jsonify({'transcription': text})
+                    response_text = generate_response(text)
+                    engine = pyttsx3.init()
+                    engine.save_to_file(response_text, 'static/response.mp3')
+                    engine.runAndWait()
+                    return jsonify({'transcription': text, 'response': response_text, 'audio_response': '/static/response.mp3'})
                 except sr.UnknownValueError:
                     return jsonify({'error': 'Could not understand audio'}), 400
                 except sr.RequestError:
@@ -421,6 +471,42 @@ def start_new_chat():
     session['chat_id'] = chat_id
 
     return jsonify({'status': 'success', 'message': 'New chat started'})
+
+def clean_up_sentence(sentence):
+    sentence_words = nltk.word_tokenize(sentence)
+    sentence_words = [lemmatizer.lemmatize(word.lower()) for word in sentence_words]
+    return sentence_words
+
+def bow(sentence, words, show_details=True):
+    sentence_words = clean_up_sentence(sentence)
+    bag = [0] * len(words)
+    for s in sentence_words:
+        for i, w in enumerate(words):
+            if w == s:
+                bag[i] = 1
+                if show_details:
+                    print(f"Found in bag: {w}")
+    return np.array(bag)
+
+def predict_class(sentence, model, words, classes):
+    p = bow(sentence, words, show_details=False)
+    res = model.predict(np.array([p]))[0]
+    ERROR_THRESHOLD = 0.25
+    results = [[i, r] for i, r in enumerate(res) if r > ERROR_THRESHOLD]
+    results.sort(key=lambda x: x[1], reverse=True)
+    return_list = []
+    for r in results:
+        return_list.append({"intent": classes[r[0]], "probability": str(r[1])})
+    return return_list
+
+def get_response(ints, intents_json):
+    tag = ints[0]['intent']
+    list_of_intents = intents_json['intents']
+    for i in list_of_intents:
+        if i['tag'] == tag:
+            result = random.choice(i['responses'])
+            break
+    return result
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
