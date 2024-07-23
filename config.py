@@ -13,4 +13,4 @@ class Config:
     MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
     MAIL_USE_TLS = os.getenv('MAIL_USE_TLS') == 'True'
     MAIL_USE_SSL = os.getenv('MAIL_USE_SSL') == 'True'
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+    HUGGINGFACE_API_TOKEN = os.getenv('HUGGINGFACE_API_TOKEN')
