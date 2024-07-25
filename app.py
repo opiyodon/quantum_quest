@@ -1,8 +1,9 @@
-import tempfile
-import os
 import json
 import random
 import numpy as np
+import pickle
+import os
+import tempfile
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -10,19 +11,19 @@ from werkzeug.utils import secure_filename
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired
 from config import Config
 from database import db
-from models import Question, UserProgress, User, Chat
-import base64
+from models import User, Chat
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from bson import ObjectId
 from pydub import AudioSegment
 import speech_recognition as sr
-from tensorflow.keras.models import load_model
+from tensorflow import keras
+from tensorflow.keras.preprocessing.sequence import pad_sequences
 import pyttsx3
 import nltk
 from nltk.stem import WordNetLemmatizer
-import requests
+from huggingface_models import text_generator, image_classifier, audio_classifier, video_classifier
 
 nltk.download('punkt')
 nltk.download('wordnet')
@@ -34,18 +35,20 @@ app.config.from_object(Config)
 socketio = SocketIO(app)
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
-# Hugging Face API settings
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-3B"
-HUGGINGFACE_API_TOKEN = app.config['HUGGINGFACE_API_TOKEN']
+# Load trained model
+model = keras.models.load_model('chatbot_model.keras')
 
-# Ensure the 'uploads' directory exists
-if not os.path.exists(os.path.join('static', 'uploads')):
-    os.makedirs(os.path.join('static', 'uploads'))
+# Load tokenizer object
+with open('tokenizer.pickle', 'rb') as handle:
+    tokenizer = pickle.load(handle)
 
-# Load the trained model
-model = load_model('chatbot_model.keras')
-words = np.load('words.npy', allow_pickle=True)
-classes = np.load('classes.npy', allow_pickle=True)
+# Load label encoder object
+with open('label_encoder.pickle', 'rb') as enc:
+    lbl_encoder = pickle.load(enc)
+
+# Load responses
+with open('responses.pickle', 'rb') as resp:
+    responses = pickle.load(resp)
 
 # Load intents
 with open('intents.json') as file:
@@ -203,7 +206,6 @@ def register():
                     filename = secure_filename(profile_picture.filename)
                     filepath = os.path.join('static/uploads', filename)
                     
-                    # Ensure the 'uploads' directory exists
                     if not os.path.exists('static/uploads'):
                         os.makedirs('static/uploads')
                         
@@ -289,7 +291,6 @@ def update_profile():
         filename = secure_filename(profile_picture.filename)
         filepath = os.path.join('static/uploads', filename)
         
-        # Delete old profile picture if it exists
         if user.get('profile_picture'):
             old_filepath = os.path.join('static', user['profile_picture'])
             if os.path.exists(old_filepath):
@@ -318,7 +319,6 @@ def delete_account():
             os.remove(filepath)
 
     User.delete_one({'_id': user_id})
-    UserProgress.delete_many({'user_id': str(user_id)})
     Chat.delete_many({'user_id': str(user_id)})
     session.clear()
     return jsonify({'status': 'success', 'message': 'Account deleted successfully'})
@@ -332,7 +332,7 @@ def get_chat_history():
     chats = Chat.find({'user_id': user_id})
     history = []
     for chat in chats:
-        if chat['messages']:  # Check if 'messages' is not empty
+        if chat['messages']:
             history.append({'_id': str(chat['_id']), 'user_message': chat['messages'][0]['content']})
     return jsonify({'status': 'success', 'history': history})
 
@@ -375,57 +375,60 @@ def handle_user_message(data):
     user_message = data['message']
     response = generate_response(user_message)
 
-    # Save chat message
     user_id = session.get('user_id')
     chat_id = session.get('chat_id')
     if not chat_id:
         chat_id = str(ObjectId())
-        Chat.create(user_id, chat_id)
+        Chat.insert_one({'_id': ObjectId(chat_id), 'user_id': user_id, 'messages': []})
         session['chat_id'] = chat_id
     
-    Chat.add_message(chat_id, 'user', user_message)
-    Chat.add_message(chat_id, 'bot', response)
+    Chat.update_one(
+        {'_id': ObjectId(chat_id)},
+        {'$push': {'messages': {'role': 'user', 'content': user_message}}}
+    )
+    Chat.update_one(
+        {'_id': ObjectId(chat_id)},
+        {'$push': {'messages': {'role': 'bot', 'content': response}}}
+    )
 
     emit('bot_message', {'message': response})
 
 def generate_response(user_message):
-    # First, use your trained model to get a response
-    ints = predict_class(user_message, model, words, classes)
-    local_response = get_response(ints, intents)
+    # Preprocess user_message
+    padded_sequence = pad_sequences(tokenizer.texts_to_sequences([user_message]), maxlen=20, padding='post')
     
-    # Check if the local model provided a meaningful response
-    if local_response != "I didn't understand that. Can you please rephrase?":
-        context = f"Context from local model: {local_response}\n\nUser question: {user_message}"
-        try:
-            # Use Hugging Face API to enhance the response
-            headers = {"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}
-            payload = {
-                "inputs": {
-                    "text": context
-                }
-            }
-            response = requests.post(HUGGINGFACE_API_URL, headers=headers, json=payload)
-            response.raise_for_status()
-            enhanced_response = response.json()['generated_text']
-            return f"{local_response}\n\nAdditional information: {enhanced_response}"
-        except Exception as e:
-            print(f"Error using Hugging Face API: {str(e)}")
-            return local_response  # Fallback to local response if API fails
+    # Predict intent of user_message using trained model
+    prediction = model.predict(np.array(padded_sequence))
+    tag = lbl_encoder.inverse_transform([np.argmax(prediction)])
+    
+    # Get response based on predicted tag
+    if tag[0] in responses:
+        local_response = random.choice(responses[tag[0]])
     else:
-        # If local model doesn't understand, try Hugging Face API
-        try:
-            headers = {"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}
-            payload = {
-                "inputs": {
-                    "text": user_message
-                }
-            }
-            response = requests.post(HUGGINGFACE_API_URL, headers=headers, json=payload)
-            response.raise_for_status()
-            return response.json()['generated_text']
-        except Exception as e:
-            print(f"Error using Hugging Face API: {str(e)}")
-            return "I'm having trouble understanding. Could you please rephrase your question?"
+        local_response = "I'm not sure how to respond to that."
+
+    enhanced_response = local_response
+
+    # Text generation
+    text_gen = text_generator(user_message, max_length=100, num_return_sequences=1)
+    enhanced_response += f"\n\nAdditional context: {text_gen[0]['generated_text']}"
+
+    # Image classification (if applicable)
+    if 'image_data' in session:
+        image_result = image_classifier(session['image_data'])
+        enhanced_response += f"\n\nImage classification: {image_result[0]['label']}"
+
+    # Audio classification (if applicable)
+    if 'audio_path' in session:
+        audio_result = audio_classifier(session['audio_path'])
+        enhanced_response += f"\n\nAudio classification: {audio_result[0]['label']}"
+
+    # Video classification (if applicable)
+    if 'video_path' in session:
+        video_result = video_classifier(session['video_path'])
+        enhanced_response += f"\n\nVideo classification: {video_result[0]['label']}"
+
+    return enhanced_response
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe_audio():
@@ -436,9 +439,7 @@ def transcribe_audio():
     with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_audio:
         audio_file.save(temp_audio.name)
         try:
-            # Try to load the audio file
             audio = AudioSegment.from_file(temp_audio.name)
-            # Export as WAV
             audio.export(temp_audio.name, format="wav")
 
             recognizer = sr.Recognizer()
@@ -467,7 +468,7 @@ def start_new_chat():
         return jsonify({'status': 'error', 'message': 'User not logged in'})
 
     chat_id = str(ObjectId())
-    Chat.create(user_id, chat_id)
+    Chat.insert_one({'_id': ObjectId(chat_id), 'user_id': user_id, 'messages': []})
     session['chat_id'] = chat_id
 
     return jsonify({'status': 'success', 'message': 'New chat started'})
@@ -494,9 +495,7 @@ def predict_class(sentence, model, words, classes):
     ERROR_THRESHOLD = 0.25
     results = [[i, r] for i, r in enumerate(res) if r > ERROR_THRESHOLD]
     results.sort(key=lambda x: x[1], reverse=True)
-    return_list = []
-    for r in results:
-        return_list.append({"intent": classes[r[0]], "probability": str(r[1])})
+    return_list = [{"intent": classes[r[0]], "probability": str(r[1])} for r in results]
     return return_list
 
 def get_response(ints, intents_json):
